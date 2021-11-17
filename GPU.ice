@@ -709,6 +709,15 @@ algorithm triangle(
 }
 
 // BLIT - ( tilecharacter == 0 ) OUTPUT PIXELS TO BLIT AN 8 x 8 CHARACTER ( PARAM1 == 0 as 8 x 8, == 1 as 16 x 16, == 2 as 32 x 32, == 3 as 64 x 64 )
+algorithm blitscale(
+    input   uint7   offset,
+    input   uint2   scale,
+    output  int11   scaled
+) <autorun> {
+    always {
+        scaled = offset << scale;
+    }
+}
 algorithm blittilebitmapwriter(
     // For setting blit1 tile bitmaps
     input   uint6   blit1_writer_tile,
@@ -752,8 +761,8 @@ algorithm blit(
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
     int11   x1 = uninitialized;
     int11   y1 = uninitialized;
-    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;
-    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;
+    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;                          blitscale PXS( offset <: px, scale <: scale );
+    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint5   x2 = uninitialised;                         uint5   x2NEXT <:: x2 + 1;
     uint5   y2 = uninitialised;                         uint5   y2NEXT <:: y2 + 1;
     uint5   maxcount <:: ( 1 << scale );
@@ -773,12 +782,12 @@ algorithm blit(
     uint1   action10 <:: ( action[0,2] == 2b10 );
 
     uint4   yinblittile <:: action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy4 : revx4 : action[1,1] ? revy4 :  py[0,4];
-    uint4   xinblittile <:: 15 - ( action[2,1] ?  action00 ? px[0,4] : action01 ? revy4 : action10 ? revx4 : py[0,4] : action[0,1] ? revx4 :  px[0,4] );
+    uint4   xinblittile <:: ( action[2,1] ?  action00 ? revx4 : action01 ? py[0,4] : action10 ? px[0,4] : revy4 : action[0,1] ? px[0,4] : revx4 );
     uint3   yinchartile <:: action[2,1] ? action00 ? py[0,3] : action01 ? px[0,3] : action10 ? revy3 : revx3 : action[1,1] ? revy3 :  py[0,3];
-    uint3   xinchartile <:: 7 - ( action[2,1] ?  action00 ? px[0,3] : action01 ? revy3 : action10 ? revx3 : py[0,3] : action[0,1] ? revx3 :  px[0,3] );
+    uint3   xinchartile <:: ( action[2,1] ?  action00 ? revx3 : action01 ? py[0,3] : action10 ? px[0,3] : revy3 : action[0,1] ?  px[0,3] : revx3 );
 
     blit1tilemap.addr0 := { tile, yinblittile }; characterGenerator8x8.addr0 := { tile, yinchartile };
-    bitmap_x_write := x1 + ( px << scale ) + x2; bitmap_y_write := y1 + ( py << scale ) + y2; bitmap_write := 0;
+    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_write := 0;
 
     while(1) {
         if( start ) {
@@ -840,8 +849,8 @@ algorithm colourblit(
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
     int11   x1 = uninitialized;
     int11   y1 = uninitialized;
-    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;
-    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;
+    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;                          blitscale PXS( offset <: px, scale <: scale );
+    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint5   x2 = uninitialised;                         uint5   x2NEXT <:: x2 + 1;
     uint5   y2 = uninitialised;                         uint5   y2NEXT <:: y2 + 1;
     uint5   maxcount <:: ( 1 << scale );
@@ -858,7 +867,7 @@ algorithm colourblit(
     uint4   xintile <:: action[2,1] ?  action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
 
     colourblittilemap.addr0 := { tile, yintile, xintile };
-    bitmap_x_write := x1 + ( px << scale ) + x2; bitmap_y_write := y1 + ( py << scale ) + y2; bitmap_colour_write := colourblittilemap.rdata0;  bitmap_write := 0;
+    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0;  bitmap_write := 0;
 
     while(1) {
         if( start ) {
