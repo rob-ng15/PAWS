@@ -773,9 +773,9 @@ algorithm blit(
     uint1   action10 <:: ( action[0,2] == 2b10 );
 
     uint4   yinblittile <:: action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy4 : revx4 : action[1,1] ? revy4 :  py[0,4];
-    uint4   xinblittile <:: 15 - ( action[2,1] ?  action00 ? px[0,4] : action01 ? revy4 : action10 ? revx4 : py[0,4] : action[0,1] ? revx4 :  px[0,4] );
+    uint4   xinblittile <:: ( action[2,1] ?  action00 ? revx4 : action01 ? py[0,4] : action10 ? px[0,4] : revy4 : action[0,1] ? px[0,4] : revx4 );
     uint3   yinchartile <:: action[2,1] ? action00 ? py[0,3] : action01 ? px[0,3] : action10 ? revy3 : revx3 : action[1,1] ? revy3 :  py[0,3];
-    uint3   xinchartile <:: 7 - ( action[2,1] ?  action00 ? px[0,3] : action01 ? revy3 : action10 ? revx3 : py[0,3] : action[0,1] ? revx3 :  px[0,3] );
+    uint3   xinchartile <:: ( action[2,1] ?  action00 ? revx3 : action01 ? py[0,3] : action10 ? px[0,3] : revy3 : action[0,1] ?  px[0,3] : revx3 );
 
     blit1tilemap.addr0 := { tile, yinblittile }; characterGenerator8x8.addr0 := { tile, yinchartile };
     bitmap_x_write := x1 + ( px << scale ) + x2; bitmap_y_write := y1 + ( py << scale ) + y2; bitmap_write := 0;

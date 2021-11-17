@@ -29,7 +29,7 @@ algorithm tilemap(
     uint6   xtmposcolour <: ( {{6{tm_offset_x[4,1]}}, tm_offset_x} + ( pix_active ? ( pix_x + 11d17 ) : 11d16 ) ) >> 4;
     uint11  ytmpos <: ( {{6{tm_offset_y[4,1]}}, tm_offset_y} + ( pix_vblank ? 11d16 : 11d16 + pix_y ) ) >> 4;
 
-    // Derive the x and y coordinate within the current 16x16 tilemap block x 0-7, y 0-15
+    // Derive the x and y coordinate within the current 16x16 tilemap block x 0-15, y 0-15
     // Needs adjusting for the offsets
     uint4   xintm <: { 1b0, pix_x[0,4] } + tm_offset_x;
     uint4   yintm <: { 1b0, pix_y[0,4] } + tm_offset_y;
