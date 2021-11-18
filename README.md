@@ -9,6 +9,16 @@ I set about creating this project as I wanted an easier way to write programs to
 
 The display hardware does as much as possible to compensate for the slow CPU speed.
 
+## Quick Instructions
+
+Copy the files from the directory "SOFTWARE/PAWS" to an SDCARD and insert into the ULX3S. Flash the bitstream from "ULX3S/BUILD_ulx3s/PAWS.bit" to the ULX3S
+
+```
+fujproj PAWS.bit
+```
+
+This will initialise the BIOS and allow the selection of a PAW file to load and run.
+
 ## BIOS
 
 ![BIOS](documentation/Screenshots/BIOS.jpg)
@@ -85,19 +95,19 @@ The display hardware does as much as possible to compensate for the slow CPU spe
             * 80 x 8
 
 ![BIOS](documentation/Screenshots/COLOURS.jpg)
-64 Colour Display
+<br>64 Colour Display
 
 ![BIOS](documentation/Screenshots/3DMAZE.jpg)
-Demonstration game for the GPU and the hardware accelerated drawing of 2D Shapes
+<br>Demonstration game for the GPU and the hardware accelerated drawing of 2D Shapes
 
 ![BIOS](documentation/Screenshots/ASTEROIDS.jpg)
-Demonstration game for the sprites
+<br>Demonstration game for the sprites
 
 ![BIOS](documentation/Screenshots/INVADERS.jpg)
-Demonstration game for the blitter and sprites
+<br>Demonstration game for the blitter and sprites
 
 ![BIOS](documentation/Screenshots/OUTRUN.jpg)
-Test for the floating point unit and the GPU
+<br>Test for the floating point unit and the GPU
 
 * PERIPHERALS
     * UART ( via US1 on the ULX3S )
