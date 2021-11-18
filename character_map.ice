@@ -15,7 +15,7 @@ algorithm character_map(
     input   uint6   tpu_foreground,
     input   uint7   tpu_background,
     input   uint1   tpu_showcursor
-) <autorun> {
+) <autorun,reginputs> {
     // Character ROM 8x8
     brom uint8 characterGenerator8x8[] = {
         $include('ROM/characterROM8x8.inc')
@@ -67,7 +67,7 @@ algorithm character_map_writer(
 
     output  uint7   cursor_x,
     output  uint6   cursor_y
-) <autorun> {
+) <autorun,reginputs> {
     // COPY OF CHARCTER MAP FOR THE CURSES BUFFER
     simple_dualport_bram uint22 charactermap_copy[4800] = uninitialized;
 

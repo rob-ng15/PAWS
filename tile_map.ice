@@ -10,15 +10,6 @@ algorithm tilemap(
     output! uint6   pixel,
     output! uint1   tilemap_display,
 
-    // Set TM at x, y, character with foreground and background
-    input   uint6   tm_x,
-    input   uint6   tm_y,
-    input   uint6   tm_character,
-    input   uint6   tm_foreground,
-    input   uint7   tm_background,
-    input   uint2   tm_reflection,
-    input   uint1   tm_write,
-
     // For scrolling/wrapping
     input   int5    tm_offset_x,
     input   int5    tm_offset_y
@@ -68,7 +59,7 @@ algorithm tile_map_writer(
     input   uint4   tm_scrollwrap,
     output  uint4   tm_lastaction,
     output  uint2   tm_active
-) <autorun> {
+) <autorun,reginputs> {
     // COPY OF TILEMAP FOR SCROLLING
     simple_dualport_bram uint6 tiles_copy[1344] = uninitialized;
     simple_dualport_bram uint15 colours_copy[1344] = uninitialized;
@@ -238,7 +229,7 @@ algorithm tilebitmapwriter(
     input   uint16  tile_writer_bitmap,
 
     simple_dualport_bram_port1 tiles16x16
-) <autorun> {
+) <autorun,reginputs> {
     tiles16x16.wenable1 := 1;
     tiles16x16.addr1 := { tile_writer_tile, tile_writer_line };
     tiles16x16.wdata1 := tile_writer_bitmap;

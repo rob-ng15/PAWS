@@ -305,7 +305,7 @@ algorithm cpuexecuteFASTPATH(
     output  uint1   takeBranch,
     output  uint32  memoryoutput,
     output  uint32  result
-) <autorun,reginputs> {
+) <autorun> {
     // BRANCH COMPARISON UNIT
     branchcomparison BRANCHUNIT( function3 <: function3, sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2 );
 

@@ -128,20 +128,14 @@ algorithm background_display(
     input   uint4   b_mode
 ) <autorun,reginputs> {
     // TRUE FOR COLOUR, FALSE FOR ALT
-    uint1   condition = uninitialised;
-    pattern PATTERN(
-        pix_x <: pix_x,
-        pix_y <: pix_y,
-        b_mode <: b_mode,
-        condition :> condition
-    );
+    pattern PATTERN( pix_x <: pix_x, pix_y <: pix_y, b_mode <: b_mode );
 
     always {
         // RENDER
         if( pix_active ) {
             // SELECT ACTUAL COLOUR
             switch( b_mode ) {
-                default: { pixel = condition ? b_colour : b_alt; }                      // EVERYTHING ELSE
+                default: { pixel = PATTERN.condition ? b_colour : b_alt; }              // EVERYTHING ELSE
                 case 4: {                                                               // RAINBOW
                     switch( pix_y[6,3] ) {
                         case 3b000: { pixel = 6b100000; }
