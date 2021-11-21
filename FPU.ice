@@ -9,7 +9,7 @@ algorithm fpufast(
     output  uint1   frd,
     input   uint5   FPUflags,
     output  uint5   FPUnewflags
-) <autorun,reginputs> {
+) <autorun> {
     // GENERATE LESS AND EQUAL FLAGS FOR MIN/MAX AND COMPARISONS
     floatcompare FPUlteq( a <: sourceReg1F, b <: sourceReg2F );
     floatminmax FPUminmax( sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, less <: FPUlteq.less, function3 <: function3[0,1] );
@@ -166,24 +166,24 @@ algorithm floatcalc(
 algorithm floatclassify(
     input   uint32  sourceReg1F,
     output  uint10  classification
-) <autorun,reginputs> {
+) <autorun> {
     // CLASSIFY THE INPUT AND FLAG INFINITY, NAN, ZERO
-    classify A( a <: sourceReg1F );
-    uint4   class <:: { A.INF, A.sNAN, A.qNAN, A.ZERO };
+    classify A( a <: sourceReg1F );                 uint4   class <:: { A.INF, A.sNAN, A.qNAN, A.ZERO };
 
-    always {
+    uint4   bit = uninitialised;                    classification := 1 << bit;
+
+    always_before {
         if( |class ) {
             // INFINITY, NAN OR ZERO
             onehot( class ) {
-                case 0: { classification = ( ~|sourceReg1F[0,23] ) ? { 5b00000, ~fp32( sourceReg1F ).sign, fp32( sourceReg1F ).sign, 3b000 } :
-                                                                    { 4b0000, ~fp32( sourceReg1F ).sign, 2b00, fp32( sourceReg1F ).sign, 2b00 }; }
-                case 1: { classification = 10b1000000000; }
-                case 2: { classification = 10b0100000000; }
-                case 3: { classification = { 2b00, ~fp32( sourceReg1F ).sign, 6b000000, fp32( sourceReg1F ).sign }; }
+                case 0: { bit = ~|sourceReg1F[0,23] ? fp32( sourceReg1F ).sign ? 3 : 4 : fp32( sourceReg1F ).sign ? 2 : 5; }
+                case 1: { bit = 9; }
+                case 2: { bit = 8; }
+                case 3: { bit = fp32( sourceReg1F ).sign ? 0 : 7; }
             }
         } else {
             // NUMBER
-            classification = { 3b000, ~fp32( sourceReg1F ).sign, 4b0000, fp32( sourceReg1F ).sign, 1b0 };
+            bit = fp32( sourceReg1F ).sign ? 1 : 6;
         }
     }
 }
@@ -195,7 +195,7 @@ algorithm floatminmax(
     input   uint32  sourceReg2F,
     output  uint5   flags,
     output  uint32  result
-) <autorun,reginputs> {
+) <autorun> {
     // CLASSIFY THE INPUTS AND FLAG NAN
     classify A( a <: sourceReg1F );
     classify B( a <: sourceReg2F );
@@ -207,7 +207,6 @@ algorithm floatminmax(
             // sNAN or both qNAN
             result = 32h7fc00000;
         } else {
-//            result = A.qNAN ? ( B.qNAN ? 32h7fc00000 : sourceReg2F ) : B.qNAN ? sourceReg1F : ( function3 ^ less ? sourceReg1F : sourceReg2F );
             result = A.qNAN ? ( B.qNAN ? 32h7fc00000 : sourceReg2F ) : B.qNAN | ( function3 ^ less ) ? sourceReg1F : sourceReg2F;
         }
     }
@@ -221,8 +220,8 @@ algorithm floatcomparison(
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
     output  uint5   flags,
-    output  uint1  result
-) <autorun,reginputs> {
+    output  uint1   result
+) <autorun> {
     // CLASSIFY THE INPUTS AND FLAG INFINITY, NAN
     classify A( a <: sourceReg1F );
     classify B( a <: sourceReg2F );
@@ -246,8 +245,7 @@ algorithm floatsign(
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
     output  uint32  result,
-) <autorun,reginputs> {
-//    uint1   sign <:: function3[1,1] ? sourceReg1F[31,1] ^ sourceReg2F[31,1] : function3[0,1] ? ~sourceReg2F[31,1] : sourceReg2F[31,1];
+) <autorun> {
     uint1   sign <:: function3[1,1] ? sourceReg1F[31,1] ^ sourceReg2F[31,1] : function3[0,1] ^ sourceReg2F[31,1];
     always {
         result = { sign, sourceReg1F[0,31] };
