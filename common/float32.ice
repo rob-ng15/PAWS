@@ -265,7 +265,7 @@ algorithm floattoint(
 
     flags := { A.INF, NN, NV, 4b0000 };
     always {
-        if (A.ZERO ) {
+        if( A.ZERO ) {
             result = 0;
         } else {
             if( A.INF | NN ) {

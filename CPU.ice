@@ -85,11 +85,7 @@ algorithm PAWSCPU(
     uint16  storeHIGH <:: IFASTSLOW.FASTPATH ? EXECUTEFAST.memoryoutput[16,16] : EXECUTESLOW.memoryoutput[16,16];
 
     // CLASSIFY THE INSTRUCTION TO FAST/SLOW
-    Iclass IFASTSLOW <@clock_CPUdecoder> (
-        opCode <: RV32DECODER.opCode,
-        function3 <: RV32DECODER.function3,
-        isALUM <: RV32DECODER.function7[0,1]
-    );
+    Iclass IFASTSLOW <@clock_CPUdecoder> ( opCode <: RV32DECODER.opCode, function3 <: RV32DECODER.function3, isALUM <: RV32DECODER.function7[0,1] );
 
     // EXECUTE MULTICYCLE INSTRUCTIONS, INTEGER DIVIDE, FPU, CSR AND ALU-A
     cpuexecuteSLOWPATH EXECUTESLOW(
@@ -208,11 +204,7 @@ algorithm cpuexecuteSLOWPATH(
     input   uint1   incCSRinstret
 ) <autorun,reginputs> {
     // M EXTENSION - DIVISION
-    aluMD ALUMD(
-        function3 <: function3[0,2],
-        sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2,
-        absRS1 <: absRS1, absRS2 <: absRS2
-    );
+    aluMD ALUMD( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, absRS1 <: absRS1, absRS2 <: absRS2 );
 
     // ATOMIC MEMORY OPERATIONS
     aluA ALUA( function7 <: function7, memoryinput <: memoryinput, sourceReg2 <: sourceReg2 );
@@ -318,11 +310,7 @@ algorithm cpuexecuteFASTPATH(
     );
 
     // M EXTENSION - MULTIPLICATION
-    aluMM ALUMM(
-        function3 <: function3[0,2],
-        sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2,
-        absRS1 <: absRS1, absRS2 <: absRS2
-    );
+    aluMM ALUMM( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, absRS1 <: absRS1, absRS2 <: absRS2 );
 
     // CLASSIFY THE TYPE FOR INSTRUCTIONS THAT WRITE TO REGISTER
     uint1   isALUMM <:: ( opCode[3,1] & function7[0,1] );

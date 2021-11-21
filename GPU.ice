@@ -780,8 +780,7 @@ algorithm blit(
     input   uint1   tilecharacter
 ) <autorun,reginputs> {
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
-    int11   x1 = uninitialized;
-    int11   y1 = uninitialized;
+    int11   x1 = uninitialized;                         int11   y1 = uninitialized;
     uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;                          blitscale PXS( offset <: px, scale <: scale );
     uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint5   x2 = uninitialised;                         uint5   x2NEXT <:: x2 + 1;
