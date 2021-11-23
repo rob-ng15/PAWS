@@ -209,22 +209,27 @@ algorithm cpuexecuteSLOWPATH(
     // ATOMIC MEMORY OPERATIONS
     aluA ALUA( function7 <: function7, memoryinput <: memoryinput, sourceReg2 <: sourceReg2 );
 
-    // FLOATING POINT CLASSIFICATION
+    // FLOATING POINT INSTRUCTION CLASSIFICATION
     Fclass FCLASS( is2FPU <: opCode[2,1], isFPUFAST <: function7[4,1] );
+
+    // FLOATING POINT REGISTERS CLASSIFICATION
+    classifyF class1F( a <: sourceReg1F ); classifyF class2F( a <: sourceReg2F ); classifyF class3F( a <: sourceReg3F );
 
     // FLOATING POINT SLOW OPERATIONS - CALCULATIONS AND CONVERSIONS
     fpuslow FPUSLOW(
         FPUflags <: CSR.FPUflags,
         opCode <: opCode, function7 <: function7[2,5],
         rs2 <: rs2[0,1],
-        sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, sourceReg3F <: sourceReg3F
+        sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, sourceReg3F <: sourceReg3F,
+        classA <: class1F.class, classB <: class2F.class, classC <: class3F.class
     );
 
     // FLOATING POINT FAST OPERATIONS
     fpufast FPUFAST(
         FPUflags <: CSR.FPUflags,
         function3 <: function3[0,2], function7 <: function7[2,5],
-        sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F
+        sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F,
+         classA <: class1F.class, classB <: class2F.class
     );
 
     // MANDATORY RISC-V CSR REGISTERS + HARTID == 0 MAIN THREAD == 1 SMT THREAD
