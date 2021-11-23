@@ -307,14 +307,18 @@ algorithm floattouint(
 
 // ADDSUB ADD/SUBTRACT ( addsub == 0 add, == 1 subtract) TWO FLOATING POINT NUMBERS
 algorithm equaliseexpaddsub(
-    input   int10   expA,
-    input   uint48  sigA,
-    input   int10   expB,
-    input   uint48  sigB,
+    input   uint32  a,
+    input   uint32  b,
     output  uint48  newsigA,
     output  uint48  newsigB,
     output  int10   resultexp,
 ) <autorun> {
+    // BREAK DOWN INITIAL float32 INPUTS - SWITCH SIGN OF B IF SUBTRACTION
+    uint48  sigA <:: { 2b01, fp32(a).fraction, 23b0 };
+    uint48  sigB <:: { 2b01, fp32(b).fraction, 23b0 };
+    int10   expA <:: fp32(a).exponent;
+    int10   expB <:: fp32(b).exponent;
+
     always {
         if( expA < expB ) {
             newsigA = sigA >> ( expB - expA ); resultexp = expB - 126; newsigB = sigB;
@@ -355,10 +359,8 @@ algorithm floataddsub(
     output  uint7   flags,
     output  uint32  result
 ) <autorun,reginputs> {
-    // BREAK DOWN INITIAL float32 INPUTS - SWITCH SIGN OF B IF SUBTRACTION
-    uint48  sigA <:: { 2b01, fp32(a).fraction, 23b0 };
+    // SWITCH SIGN OF B IF SUBTRACTION
     uint1   signB <:: addsub ^ fp32( b ).sign;
-    uint48  sigB <:: { 2b01, fp32(b).fraction, 23b0 };
 
     // CLASSIFY THE INPUTS AND FLAG INFINITY, NAN, ZERO AND INVALID ( INF - INF )
     uint1   IF <:: ( A.INF | B.INF );
@@ -370,7 +372,7 @@ algorithm floataddsub(
     classify B( a <: b );
 
     // EQUALISE THE EXPONENTS
-    equaliseexpaddsub EQUALISEEXP( expA <: fp32( a ).exponent, sigA <: sigA,  expB <: fp32( b ).exponent, sigB <: sigB );
+    equaliseexpaddsub EQUALISEEXP( a <: a, b <: b );
 
     // PERFORM THE ADDITION/SUBTRACION USING THE EQUALISED FRACTIONS, 1 IS ADDED TO THE EXPONENT IN CASE OF OVERFLOW - NORMALISING WILL ADJUST WHEN SHIFTING
     dofloataddsub ADDSUB( signA <: fp32( a ).sign, sigA <: EQUALISEEXP.newsigA, signB <: signB, sigB <: EQUALISEEXP.newsigB );
