@@ -179,7 +179,7 @@ algorithm doroundcombine(
 // dounsigned == 1 for signed conversion (31 bit plus sign), == 0 for dounsigned conversion (32 bit)
 algorithm clz32(
     input   uint32  bitstream,
-    output! uint6   zeros
+    output  uint5   zeros
 ) <autorun,reginputs> {
     always {
         ( zeros ) = clz_silice_32( bitstream );
