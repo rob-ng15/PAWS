@@ -44,6 +44,7 @@ algorithm fpuslow(
     input   uint5   function7,
     input   uint1   rs2,
     input   uint32  sourceReg1,
+    input   uint32  abssourceReg1,
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
     input   uint32  sourceReg3F,
@@ -59,7 +60,7 @@ algorithm fpuslow(
     floatcalc FPUcalculator( sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, sourceReg3F <: sourceReg3F,
                                 classA <: classA, classB <: classB, classC <: classC,
                                 opCode <: opCode, function7 <: function7 );
-    floatconvert FPUconvert( sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, classA <: classA, direction <: function7[1,1], rs2 <: rs2, );
+    floatconvert FPUconvert( sourceReg1 <: sourceReg1, abssourceReg1 <: abssourceReg1, sourceReg1F <: sourceReg1F, classA <: classA, direction <: function7[1,1], rs2 <: rs2, );
 
     FPUcalculator.start := start & ~( opCode[2,1] & function7[4,1] );
 
@@ -83,13 +84,14 @@ algorithm floatconvert(
     input   uint1   direction,
     input   uint1   rs2,
     input   uint32  sourceReg1,
+    input   uint32  abssourceReg1,
     input   uint32  sourceReg1F,
     input   uint4   classA,
 
     output  uint5   flags,
     output  uint32  result
 ) <autorun,reginputs> {
-    inttofloat FPUfloat( a <: sourceReg1, dounsigned <: rs2[0,1] );
+    inttofloat FPUfloat( a <: sourceReg1, absa <: abssourceReg1, dounsigned <: rs2[0,1] );
     floattoint FPUint( a <: sourceReg1F, classA <: classA );
     floattouint FPUuint( a <: sourceReg1F, classA <: classA );
 
@@ -196,7 +198,7 @@ algorithm floatclassify(
 ) <autorun> {
     uint4   bit = uninitialised;                    classification := 1 << bit;
 
-    always_before {
+    always {
         if( |classA ) {
             // INFINITY, NAN OR ZERO
             onehot( classA ) {
@@ -438,16 +440,9 @@ algorithm doroundcombine(
 
 // CONVERT SIGNED/UNSIGNED INTEGERS TO FLOAT
 // dounsigned == 1 for signed conversion (31 bit plus sign), == 0 for dounsigned conversion (32 bit)
-algorithm clz32(
-    input   uint32  bitstream,
-    output  uint5   zeros
-) <autorun,reginputs> {
-    always {
-        ( zeros ) = clz_silice_32( bitstream );
-    }
-}
 algorithm prepitof(
     input   uint32  a,
+    input   uint32  absa,
     input   uint1   dounsigned,
     output  uint1   sign,
     output  uint23  fraction,
@@ -455,20 +450,27 @@ algorithm prepitof(
     output  uint1   NX
 ) <autorun> {
     // COUNT LEADING ZEROS - RETURNS NX IF NUMBER IS TOO LARGE, LESS THAN 8 LEADING ZEROS
-    clz32 CLZ32();
-    sign := ~dounsigned & a[31,1];                  CLZ32.bitstream := sign ? -a : a;                   NX := ( ~|CLZ32.zeros[3,2] );
-    always {
-        fraction= NX ? CLZ32.bitstream >> ( 8 - CLZ32.zeros ) : ( CLZ32.zeros == 8 ) ? CLZ32.bitstream : CLZ32.bitstream << ( CLZ32.zeros - 8 );
-        exponent = 158 - CLZ32.zeros;
+    uint32  number <: sign ? absa : a;
+    uint5   zeros = uninitialised;
+
+    always_before {
+        sign = ~dounsigned & a[31,1];
+        ( zeros ) = clz_silice_32( number );
+    }
+    always_after {
+        NX = ( ~|zeros[3,2] );
+        fraction = NX ? number >> ( 8 - zeros ) : number << ( zeros - 8 );
+        exponent = 158 - zeros;
     }
 }
 algorithm inttofloat(
     input   uint32  a,
+    input   uint32  absa,
     input   uint1   dounsigned,
     output  uint7   flags,
     output  uint32  result
 ) <autorun> {
-    prepitof PREP( a <: a, dounsigned <: dounsigned );
+    prepitof PREP( a <: a, absa <: absa, dounsigned <: dounsigned );
     flags := { 6b0, PREP.NX };
     always {
         if( |a ) {

@@ -98,7 +98,7 @@ algorithm PAWSCPU(
         rs2 <: RV32DECODER.rs2,
         sourceReg1 <: REGISTERS.sourceReg1,
         sourceReg2 <: REGISTERS.sourceReg2,
-        absRS1 <: ARS1.value,
+        abssourceReg1 <: ARS1.value,
         absRS2 <: ARS2.value,
         sourceReg1F <: REGISTERSF.sourceReg1,
         sourceReg2F <: REGISTERSF.sourceReg2,
@@ -117,7 +117,7 @@ algorithm PAWSCPU(
         rs2 <: RV32DECODER.rs2,
         sourceReg1 <: REGISTERS.sourceReg1,
         sourceReg2 <: REGISTERS.sourceReg2,
-        absRS1 <: ARS1.value,
+        abssourceReg1 <: ARS1.value,
         absRS2 <: ARS2.value,
         sourceReg2F <: REGISTERSF.sourceReg2,
         immediateValue <: RV32DECODER.immediateValue,
@@ -192,7 +192,7 @@ algorithm cpuexecuteSLOWPATH(
     input   uint5   rs2,
     input   uint32  sourceReg1,
     input   uint32  sourceReg2,
-    input   uint32  absRS1,
+    input   uint32  abssourceReg1,
     input   uint32  absRS2,
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
@@ -204,7 +204,7 @@ algorithm cpuexecuteSLOWPATH(
     input   uint1   incCSRinstret
 ) <autorun,reginputs> {
     // M EXTENSION - DIVISION
-    aluMD ALUMD( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, absRS1 <: absRS1, absRS2 <: absRS2 );
+    aluMD ALUMD( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, absRS2 <: absRS2 );
 
     // ATOMIC MEMORY OPERATIONS
     aluA ALUA( function7 <: function7, memoryinput <: memoryinput, sourceReg2 <: sourceReg2 );
@@ -220,7 +220,7 @@ algorithm cpuexecuteSLOWPATH(
         FPUflags <: CSR.FPUflags,
         opCode <: opCode, function7 <: function7[2,5],
         rs2 <: rs2[0,1],
-        sourceReg1 <: sourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, sourceReg3F <: sourceReg3F,
+        sourceReg1 <: sourceReg1, abssourceReg1 <: abssourceReg1, sourceReg1F <: sourceReg1F, sourceReg2F <: sourceReg2F, sourceReg3F <: sourceReg3F,
         classA <: class1F.class, classB <: class2F.class, classC <: class3F.class
     );
 
@@ -292,7 +292,7 @@ algorithm cpuexecuteFASTPATH(
     input   uint5   rs2,
     input   uint32  sourceReg1,
     input   uint32  sourceReg2,
-    input   uint32  absRS1,
+    input   uint32  abssourceReg1,
     input   uint32  absRS2,
     input   uint32  sourceReg2F,
     input   uint32  immediateValue,
@@ -315,7 +315,7 @@ algorithm cpuexecuteFASTPATH(
     );
 
     // M EXTENSION - MULTIPLICATION
-    aluMM ALUMM( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, absRS1 <: absRS1, absRS2 <: absRS2 );
+    aluMM ALUMM( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, absRS2 <: absRS2 );
 
     // CLASSIFY THE TYPE FOR INSTRUCTIONS THAT WRITE TO REGISTER
     uint1   isALUMM <:: ( opCode[3,1] & function7[0,1] );

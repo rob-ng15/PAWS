@@ -715,6 +715,14 @@ algorithm blitscale(
         scaled = offset << scale;
     }
 }
+algorithm blitmaxcount(
+    input   uint2   scale,
+    output  uint4   max
+) <autorun> {
+    always {
+        max = 1 << scale;
+    }
+}
 algorithm   blittilexy(
     input   uint7   px,
     input   uint7   py,
@@ -750,12 +758,11 @@ algorithm blittilebitmapwriter(
     simple_dualport_bram_port1 blit1tilemap,
     simple_dualport_bram_port1 characterGenerator8x8
 ) <autorun,reginputs> {
-    blit1tilemap.wenable1 := 1;
-    characterGenerator8x8.wenable1 := 1;
-    blit1tilemap.addr1 := { blit1_writer_tile, blit1_writer_line };
-    blit1tilemap.wdata1 := blit1_writer_bitmap;
-    characterGenerator8x8.addr1 := { character_writer_character, character_writer_line };
-    characterGenerator8x8.wdata1 := character_writer_bitmap;
+    blit1tilemap.wenable1 := 1; characterGenerator8x8.wenable1 := 1;
+    always_after {
+        blit1tilemap.addr1 = { blit1_writer_tile, blit1_writer_line }; blit1tilemap.wdata1 = blit1_writer_bitmap;
+        characterGenerator8x8.addr1 = { character_writer_character, character_writer_line }; characterGenerator8x8.wdata1 = character_writer_bitmap;
+    }
 }
 
 algorithm blit(
@@ -782,10 +789,12 @@ algorithm blit(
     uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
-    uint4   maxcount <:: ( 1 << scale );
 
-    // MULTIPLIER FOR THE SIZE
+    // MAX PIXELS IN TILE
     uint5   max_pixels <:: tilecharacter ? 16 : 8;
+
+    // MAXCOUNT FOR THE SCALE
+    blitmaxcount COUNT( scale <: scale );
 
     // FIND X AND Y WITHIN THE TILE/CHARACTER BITMAP
     blittilexy BTXY( px <: px, py <: py, action <: action );
@@ -801,9 +810,9 @@ algorithm blit(
                 px = 0;
                 while( px != max_pixels ) {
                     y2 = 0;
-                    while( y2 != maxcount ) {
+                    while( y2 != COUNT.max ) {
                         x2 = 0;
-                        while( x2 != maxcount ) {
+                        while( x2 != COUNT.max ) {
                             bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1];
                             x2 = x2NEXT;
                         }
@@ -847,8 +856,10 @@ algorithm colourblittilebitmapwriter(
     simple_dualport_bram_port1 colourblittilemap,
 ) <autorun,reginputs> {
     colourblittilemap.wenable1 := 1;
-    colourblittilemap.addr1 := { colourblit_writer_tile, colourblit_writer_line, colourblit_writer_pixel };
-    colourblittilemap.wdata1 := colourblit_writer_colour;
+    always_after {
+        colourblittilemap.addr1 = { colourblit_writer_tile, colourblit_writer_line, colourblit_writer_pixel };
+        colourblittilemap.wdata1 = colourblit_writer_colour;
+    }
 }
 algorithm colourblit(
     input   uint1   start,
@@ -873,7 +884,9 @@ algorithm colourblit(
     uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
-    uint4   maxcount <:: ( 1 << scale );
+
+    // MAXCOUNT FOR THE SCALE
+    blitmaxcount COUNT( scale <: scale );
 
     // FIND X AND Y WITHIN THE TILE BITMAP
     cololurblittilexy CBTXY( px <: px, py <: py, action <: action );
@@ -889,9 +902,9 @@ algorithm colourblit(
                 px = 0;
                 while( ~px[4,1] ) {
                     x2 = 0;
-                    while( x2 != maxcount ) {
+                    while( x2 != COUNT.max ) {
                         y2 = 0;
-                        while( y2 != maxcount ) { bitmap_write = ~colour7(colourblittilemap.rdata0).alpha; y2 = y2NEXT; }
+                        while( y2 != COUNT.max ) { bitmap_write = ~colour7(colourblittilemap.rdata0).alpha; y2 = y2NEXT; }
                         x2 = x2NEXT;
                     }
                     px = pxNEXT;
@@ -1022,8 +1035,10 @@ algorithm vertexwriter(
     simple_dualport_bram_port1 vertex
 ) <autorun,reginputs> {
     vertex.wenable1 := 1;
-    vertex.addr1 := { vertices_writer_block, vertices_writer_vertex };
-    vertex.wdata1 := { vertices_writer_active, __unsigned(vertices_writer_xdelta), __unsigned(vertices_writer_ydelta) };
+    always_after {
+        vertex.addr1 = { vertices_writer_block, vertices_writer_vertex };
+        vertex.wdata1 = { vertices_writer_active, __unsigned(vertices_writer_xdelta), __unsigned(vertices_writer_ydelta) };
+    }
 }
 algorithm vectors(
     simple_dualport_bram_port0 vertex,

@@ -174,14 +174,15 @@ algorithm starfield(
     int12   new_rand_x <:: rand_x * 31421 + 6927;
     int32   frame = 0;
 
-    // Increment frame number for the snow/star field
-    frame ::= frame + ( ( pix_x == 639 ) & ( pix_y == 479 ) );
-
-    always {
+    always_before {
         rand_x = ( ~|pix_x )  ? 1 : new_rand_x;
         speed  = rand_x[10,2];
         dotpos = ( frame >> speed ) + rand_x;
         star = ( pix_y == dotpos );
+    }
+    always_after {
+        // Increment frame number for the snow/star field
+        frame = frame + ( ( pix_x == 639 ) & ( pix_y == 479 ) );
     }
 }
 

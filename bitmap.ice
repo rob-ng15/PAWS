@@ -182,13 +182,15 @@ algorithm bitmapwriter(
     bitmap_0A.wenable1 := 1; bitmap_0R.wenable1 := 1; bitmap_0G.wenable1 := 1; bitmap_0B.wenable1 := 1;
     bitmap_1A.wenable1 := 1; bitmap_1R.wenable1 := 1; bitmap_1G.wenable1 := 1; bitmap_1B.wenable1 := 1;
 
-    always {
+    always_before {
+        // SELECT ACTUAL COLOUR
+        switch( dithermode ) {
+            case 14: { pixeltowrite = static6bit; }
+            default: { pixeltowrite = DODITHER.condition ? bitmap_colour_write : bitmap_colour_write_alt; }
+        }
+    }
+    always_after {
         if( write_pixel ) {
-            // SELECT ACTUAL COLOUR
-            switch( dithermode ) {
-                case 14: { pixeltowrite = static6bit; }
-                default: { pixeltowrite = DODITHER.condition ? bitmap_colour_write : bitmap_colour_write_alt; }
-            }
             // SET PIXEL ADDRESSS bitmap_y_write * 320 + bitmap_x_write
             if( framebuffer ) {
                 bitmap_1A.addr1 = address; bitmap_1A.wdata1 = pixeltowrite[6,1];

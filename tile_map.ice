@@ -211,6 +211,9 @@ algorithm tilebitmapwriter(
     simple_dualport_bram_port1 tiles16x16
 ) <autorun,reginputs> {
     tiles16x16.wenable1 := 1;
-    tiles16x16.addr1 := { tile_writer_tile, tile_writer_line };
-    tiles16x16.wdata1 := tile_writer_bitmap;
+    always_after {
+        tiles16x16.addr1 = { tile_writer_tile, tile_writer_line };
+        tiles16x16.wdata1 = tile_writer_bitmap;
+    }
 }
+
