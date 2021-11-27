@@ -14,16 +14,13 @@ algorithm decode(
     output  uint2   accesssize,
     output  uint1   AMO
 ) <autorun> {
-    uint1   AMOLR <:: ( function7[2,5] == 5b00010 );
-    uint1   AMOSC <:: ( function7[2,5] == 5b00011 );
-    uint1   ILOAD <:: opCode == 5b00000;
-    uint1   ISTORE <:: opCode == 5b01000;
-    uint1   FLOAD <:: opCode == 5b00001;
-    uint1   FSTORE <:: opCode == 5b01001;
+    uint1   AMOLR <: function7[2,5] == 5b00010;     uint1   AMOSC <: function7[2,5] == 5b00011;
+    uint1   ILOAD <: instruction[2,5] == 5b00000;   uint1   ISTORE <: instruction[2,5] == 5b01000;
+    uint1   FLOAD <: instruction[2,5] == 5b00001;   uint1   FSTORE <: instruction[2,5] == 5b01001;
 
-    always {
+    always_after {
         opCode = instruction[2,5];
-        AMO = ( opCode == 5b01011 );
+        AMO = ( instruction[2,5] == 5b01011 );
         function3 = Rtype(instruction).function3;
         function7 = Rtype(instruction).function7;
         rs1 = Rtype(instruction).sourceReg1;
@@ -49,9 +46,9 @@ algorithm Iclass(
     output  uint1   FASTPATH
 ) <autorun> {
     // CHECK FOR FLOATING POINT, OR INTEGER DIVIDE
-    uint1   ALUfastslow <:: ~( opCode[4,1] | ( opCode[3,1] & isALUM & function3[2,1]) );
+    uint1   ALUfastslow <: ~( opCode[4,1] | ( opCode[3,1] & isALUM & function3[2,1]) );
     frd := 0; writeRegister := 1; incPC := 1; FASTPATH := 1;
-    always {
+    always_after {
         switch( opCode ) {
             case 5b01101: {}                        // LUI
             case 5b00101: {}                        // AUIPC
@@ -78,7 +75,7 @@ algorithm Fclass(
 ) <autorun> {
     // FUSED OPERATIONS + CALCULATIONS & CONVERSIONS GO VIA SLOW PATH
     // SIGN MANIPULATION, COMPARISONS + MIN/MAX, MOVE AND CLASSIFICATION GO VIA FAST PATH
-    always {
+    always_after {
         FASTPATHFPU = is2FPU & isFPUFAST;           // is2FPU DETERMINES IF NORMAL OR FUSED, THEN isFPUFAST DETERMINES IF FAST OR SLOW
     }
 }
@@ -91,9 +88,9 @@ algorithm signextend(
     input   uint1   dounsigned,
     output  uint32  memory168
 ) <autorun> {
-    uint4   byteoffset <:: { byteaccess, 3b000 };   uint4   bytesignoffset <:: { byteaccess, 3b111 };
-    uint1   sign <:: ~dounsigned & ( is16or8 ? readdata[15,1] : readdata[bytesignoffset, 1] );
-    always {
+    uint4   byteoffset <: { byteaccess, 3b000 };   uint4   bytesignoffset <:: { byteaccess, 3b111 };
+    uint1   sign <: ~dounsigned & ( is16or8 ? readdata[15,1] : readdata[bytesignoffset, 1] );
+    always_after {
         memory168 = is16or8 ? { {16{sign}}, readdata[0,16] } : { {24{sign}}, readdata[byteoffset, 8] };
     }
 }
@@ -103,7 +100,7 @@ algorithm absolute(
     input   int32   number,
     output  uint32  value
 ) <autorun> {
-    always {
+    always_after {
         value = number[31,1] ? -number : number;
     }
 }
@@ -228,7 +225,7 @@ algorithm compressed00(
     input   uint16  i16,
     output  uint30  i32
 ) <autorun> {
-    always {
+    always_after {
         if( |i16[13,3] ) {
             if( i16[15,1] ) {
                 // SW -> sw rs2', offset[6:2](rs1') { 110 uimm[5:3] rs1' uimm[2][6] rs2' 00 } -> { imm[11:5] rs2 rs1 010 imm[4:0] 0100011 }
@@ -249,8 +246,10 @@ algorithm compressed01(
     input   uint16  i16,
     output  uint30  i32
 ) <autorun> {
-    uint3   opbits = uninitialized;
-    always {
+    // CBalu(i16).logical2 -> SUB XOR OR AND
+    uint3   opbits <: ( ^CBalu(i16).logical2 ) ? { 1b1, CBalu(i16).logical2[1,1], 1b0 } : {3{CBalu(i16).logical2[0,1]}};
+
+    always_after {
         switch( i16[13,3] ) {
             case 3b000: {
                 // ADDI -> addi rd, rd, nzimm[5:0] { 000 nzimm[5] rs1/rd!=0 nzimm[4:0] 01 } -> { imm[11:0] rs1 000 rd 0010011 }
@@ -283,11 +282,6 @@ algorithm compressed01(
                         // 2b01 -> XOR -> xor rd', rd', rs2' { 100 0 11 rs1'/rd' 01 rs2' 01 } -> { 0000000 rs2 rs1 100 rd 0110011 }
                         // 2b10 -> OR  -> or  rd', rd', rd2' { 100 0 11 rs1'/rd' 10 rs2' 01 } -> { 0000000 rs2 rs1 110 rd 0110011 }
                         // 2b11 -> AND -> and rd', rd', rs2' { 100 0 11 rs1'/rd' 11 rs2' 01 } -> { 0000000 rs2 rs1 111 rd 0110011 }
-                        if( ^CBalu(i16).logical2 ) {
-                            opbits = { 1b1, CBalu(i16).logical2[1,1], 1b0 };
-                        } else {
-                            opbits = {3{CBalu(i16).logical2[0,1]}};
-                        }
                         i32 = { { 1b0, ~|CBalu(i16).logical2, 5b00000 }, { 2b01, CBalu(i16).rs2_alt }, { 2b01, CBalu(i16).rd_alt }, opbits, { 2b01, CBalu(i16).rd_alt }, 5b01100 };
                     } else {
                         // ANDI -> andi rd', rd', imm[5:0] { 100 imm[5], 10 rs1'/rd' imm[4:0] 01 } -> { imm[11:0] rs1 111 rd 0010011 }
@@ -316,7 +310,7 @@ algorithm compressed10(
     input   uint16  i16,
     output  uint30  i32
 ) <autorun> {
-    always {
+    always_after {
         switch( i16[13,3] ) {
             case 3b000: {
                 // SLLI -> slli rd, rd, shamt[5:0] { 000, nzuimm[5], rs1/rd!=0 nzuimm[4:0] 10 } -> { 0000000 shamt rs1 001 rd 0010011 }

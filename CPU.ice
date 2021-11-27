@@ -99,7 +99,7 @@ algorithm PAWSCPU(
         sourceReg1 <: REGISTERS.sourceReg1,
         sourceReg2 <: REGISTERS.sourceReg2,
         abssourceReg1 <: ARS1.value,
-        absRS2 <: ARS2.value,
+        abssourceReg2 <: ARS2.value,
         sourceReg1F <: REGISTERSF.sourceReg1,
         sourceReg2F <: REGISTERSF.sourceReg2,
         sourceReg3F <: REGISTERSF.sourceReg3,
@@ -118,7 +118,7 @@ algorithm PAWSCPU(
         sourceReg1 <: REGISTERS.sourceReg1,
         sourceReg2 <: REGISTERS.sourceReg2,
         abssourceReg1 <: ARS1.value,
-        absRS2 <: ARS2.value,
+        abssourceReg2 <: ARS2.value,
         sourceReg2F <: REGISTERSF.sourceReg2,
         immediateValue <: RV32DECODER.immediateValue,
         memoryinput <: memoryinput,
@@ -193,7 +193,7 @@ algorithm cpuexecuteSLOWPATH(
     input   uint32  sourceReg1,
     input   uint32  sourceReg2,
     input   uint32  abssourceReg1,
-    input   uint32  absRS2,
+    input   uint32  abssourceReg2,
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
     input   uint32  sourceReg3F,
@@ -204,7 +204,7 @@ algorithm cpuexecuteSLOWPATH(
     input   uint1   incCSRinstret
 ) <autorun,reginputs> {
     // M EXTENSION - DIVISION
-    aluMD ALUMD( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, absRS2 <: absRS2 );
+    aluMD ALUMD( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, abssourceReg2 <: abssourceReg2 );
 
     // ATOMIC MEMORY OPERATIONS
     aluA ALUA( function7 <: function7, memoryinput <: memoryinput, sourceReg2 <: sourceReg2 );
@@ -293,7 +293,7 @@ algorithm cpuexecuteFASTPATH(
     input   uint32  sourceReg1,
     input   uint32  sourceReg2,
     input   uint32  abssourceReg1,
-    input   uint32  absRS2,
+    input   uint32  abssourceReg2,
     input   uint32  sourceReg2F,
     input   uint32  immediateValue,
     input   uint32  memoryinput,
@@ -315,7 +315,7 @@ algorithm cpuexecuteFASTPATH(
     );
 
     // M EXTENSION - MULTIPLICATION
-    aluMM ALUMM( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, absRS2 <: absRS2 );
+    aluMM ALUMM( function3 <: function3[0,2], sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, abssourceReg1 <: abssourceReg1, abssourceReg2 <: abssourceReg2 );
 
     // CLASSIFY THE TYPE FOR INSTRUCTIONS THAT WRITE TO REGISTER
     uint1   isALUMM <:: ( opCode[3,1] & function7[0,1] );
