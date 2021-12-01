@@ -18,6 +18,8 @@ algorithm apu(
 
     always {
         if( updatepoint ) { audio_output = level; }
+    }
+    always_after {
         if( apu_write ) {
             point = 0;
             WAVEFORM.selected_waveform = waveform;
@@ -51,7 +53,7 @@ algorithm waveform(
     };
     level.addr := { selected_waveform[0,2], point };
 
-    always {
+    always_after {
         if( selected_waveform[2,1] ) {
              audio_output = staticGenerator;
         } else {
@@ -68,26 +70,21 @@ algorithm audiocounter(
     output  uint1   active
 ) <autorun,reginputs> {
     uint16  counter25mhz = uninitialised;
-    uint16  nextcounter25mhz <:: counter25mhz - 1;
     uint16  counter1khz = uninitialised;
-    uint16  nextcounter1khz <:: counter1khz - 1;
     uint16  duration = uninitialised;
     uint1   updateduration <:: active & ( ~|counter1khz );
 
     active := ( |duration ); updatepoint := active & ( ~|counter25mhz );
 
-    always {
+    always_after {
         if( start ) {
             counter25mhz = 0;
             counter1khz = 25000;
             duration = selected_duration;
         } else {
-            counter25mhz = updatepoint ? selected_frequency : nextcounter25mhz;
-            counter1khz = updateduration ? 25000 : nextcounter1khz;
+            counter25mhz = updatepoint ? selected_frequency : counter25mhz - 1;
+            counter1khz = updateduration ? 25000 : counter1khz - 1;
             duration = duration - updateduration;
         }
     }
-
-    // STOP AUDIO ON RESET
-    if( ~reset ) { duration = 0; }
 }

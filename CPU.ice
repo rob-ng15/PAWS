@@ -27,8 +27,9 @@ algorithm PAWSCPU(
     uint1   compressed = uninitialized;
     compressed00 COMPRESSED00 <@clock_CPUdecoder> ( i16 <: readdata ); compressed01 COMPRESSED01 <@clock_CPUdecoder> ( i16 <: readdata ); compressed10 COMPRESSED10 <@clock_CPUdecoder> ( i16 <: readdata );
 
-    // RISC-V 32 BIT INSTRUCTION DECODER
-    decode RV32DECODER <@clock_CPUdecoder> ( instruction <: instruction, accesssize :> accesssize );
+    // RISC-V 32 BIT INSTRUCTION DECODER + MEMORY ACCESS SIZE
+    decode RV32DECODER <@clock_CPUdecoder> ( instruction <: instruction );
+    memoryaccess MEMACCESS <@clock_CPUdecoder> ( opCode <: RV32DECODER.opCode, function7 <: RV32DECODER.function7[2,5], function3 <: RV32DECODER.function3, AMO <: RV32DECODER.AMO, accesssize :> accesssize );
 
     // RISC-V REGISTERS
     uint1   frd <:: IFASTSLOW.FASTPATH ? IFASTSLOW.frd : EXECUTESLOW.frd;
@@ -157,7 +158,7 @@ algorithm PAWSCPU(
         }
         ++: ++:                                                                                                                                     // DECODE, REGISTER FETCH, ADDRESS GENERATION
 
-        if( RV32DECODER.memoryload ) {
+        if( MEMACCESS.memoryload ) {
             address = AGU.loadAddress; readmemory = 1; while( memorybusy ) {}                                                                       // READ 1ST 8 or 16 BITS
             if( accesssize[1,1] ) {
                 memoryinput[0,16] = readdata; address = LA2.addressplus2; readmemory = 1; while( memorybusy ) {} memoryinput[16,16] = readdata;     // READ 2ND 16 BITS
@@ -169,7 +170,7 @@ algorithm PAWSCPU(
         if( ~IFASTSLOW.FASTPATH ) { EXECUTESLOW.start = 1; while( EXECUTESLOW.busy ) {} }                                                           // FPU ALU AND CSR OPERATIONS, FASTPATH HANDLED AUTOMATICALLY
         COMMIT = 1;                                                                                                                                 // COMMIT REGISTERS
 
-        if( RV32DECODER.memorystore ) {
+        if( MEMACCESS.memorystore ) {
             address = AGU.storeAddress; writedata = storeLOW; writememory = 1; while( memorybusy ) {}                                               // STORE 8 OR 16 BIT
             if( accesssize[1,1] ) {
                 address = SA2.addressplus2; writedata = storeHIGH; writememory = 1;  while( memorybusy ) {}                                         // 32 BIT WRITE 2ND 16 BITS
@@ -325,7 +326,7 @@ algorithm cpuexecuteFASTPATH(
 
     takeBranch := 0;
 
-    always {
+    always_after {
         switch( opCode ) {
             case 5b11000: { takeBranch = BRANCHUNIT.takeBranch; }       // BRANCH
             case 5b01000: { memoryoutput = sourceReg2; }                // STORE

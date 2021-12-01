@@ -9,15 +9,8 @@ algorithm decode(
     output  uint5   rs3,
     output  uint5   rd,
     output  int32   immediateValue,
-    output  uint1   memoryload,
-    output  uint1   memorystore,
-    output  uint2   accesssize,
     output  uint1   AMO
 ) <autorun> {
-    uint1   AMOLR <: function7[2,5] == 5b00010;     uint1   AMOSC <: function7[2,5] == 5b00011;
-    uint1   ILOAD <: instruction[2,5] == 5b00000;   uint1   ISTORE <: instruction[2,5] == 5b01000;
-    uint1   FLOAD <: instruction[2,5] == 5b00001;   uint1   FSTORE <: instruction[2,5] == 5b01001;
-
     always_after {
         opCode = instruction[2,5];
         AMO = ( instruction[2,5] == 5b01011 );
@@ -28,8 +21,22 @@ algorithm decode(
         rs3 = R4type(instruction).sourceReg3;
         rd = Rtype(instruction).destReg;
         immediateValue = { {20{instruction[31,1]}}, Itype(instruction).immediate };
-        memoryload = ILOAD | FLOAD | ( AMO & ~AMOSC );
-        memorystore = ISTORE | FSTORE | ( AMO & ~AMOLR );
+    }
+}
+algorithm memoryaccess(
+    input   uint5   opCode,
+    input   uint5   function7,
+    input   uint3   function3,
+    input   uint1   AMO,
+    output  uint1   memoryload,
+    output  uint1   memorystore,
+    output  uint2   accesssize
+) <autorun> {
+    uint1   ILOAD <:: opCode == 5b00000;   uint1   ISTORE <:: opCode == 5b01000;
+    uint1   FLOAD <:: opCode == 5b00001;   uint1   FSTORE <:: opCode == 5b01001;
+    always_after {
+        memoryload = ILOAD | FLOAD | ( AMO & ( function7 != 5b00011 ) );
+        memorystore = ISTORE | FSTORE | ( AMO & ( function7 != 5b00010 ) );
         accesssize = AMO | FLOAD | FSTORE ? 2b10 : function3[0,2];
     }
 }
@@ -46,7 +53,7 @@ algorithm Iclass(
     output  uint1   FASTPATH
 ) <autorun> {
     // CHECK FOR FLOATING POINT, OR INTEGER DIVIDE
-    uint1   ALUfastslow <: ~( opCode[4,1] | ( opCode[3,1] & isALUM & function3[2,1]) );
+    uint1   ALUfastslow <:: ~( opCode[4,1] | ( opCode[3,1] & isALUM & function3[2,1]) );
     frd := 0; writeRegister := 1; incPC := 1; FASTPATH := 1;
     always_after {
         switch( opCode ) {
@@ -88,8 +95,8 @@ algorithm signextend(
     input   uint1   dounsigned,
     output  uint32  memory168
 ) <autorun> {
-    uint4   byteoffset <: { byteaccess, 3b000 };   uint4   bytesignoffset <:: { byteaccess, 3b111 };
-    uint1   sign <: ~dounsigned & ( is16or8 ? readdata[15,1] : readdata[bytesignoffset, 1] );
+    uint4   byteoffset <:: { byteaccess, 3b000 };   uint4   bytesignoffset <:: { byteaccess, 3b111 };
+    uint1   sign <:: ~dounsigned & ( is16or8 ? readdata[15,1] : readdata[bytesignoffset, 1] );
     always_after {
         memory168 = is16or8 ? { {16{sign}}, readdata[0,16] } : { {24{sign}}, readdata[byteoffset, 8] };
     }
@@ -110,9 +117,8 @@ algorithm addrplus2(
     input   uint27  address,
     output  uint27  addressplus2
 ) <autorun> {
-    uint27  plus2 <:: address + 2;
-    always {
-        addressplus2 = plus2;
+    always_after {
+        addressplus2 = address + 2;
     }
 }
 
@@ -129,7 +135,7 @@ algorithm addressgenerator(
     output  uint27  storeAddress,
     input   uint1   AMO
 ) <autorun> {
-    always {
+    always_after {
         AUIPCLUI = { Utype(instruction).immediate_bits_31_12, 12b0 } + ( instruction[5,1] ? 0 : PC );
         branchAddress = { {20{Btype(instruction).immediate_bits_12}}, Btype(instruction).immediate_bits_11, Btype(instruction).immediate_bits_10_5, Btype(instruction).immediate_bits_4_1, 1b0 } + PC;
         jumpAddress = { {12{Jtype(instruction).immediate_bits_20}}, Jtype(instruction).immediate_bits_19_12, Jtype(instruction).immediate_bits_11, Jtype(instruction).immediate_bits_10_1, 1b0 } + PC;
@@ -151,7 +157,7 @@ algorithm newpc(
     output  uint27  nextPC,
     output  uint27  newPC
 ) <autorun> {
-    always {
+    always_after {
         nextPC = PC + ( compressed ? 2 : 4 );
         newPC = ( incPC ) ? ( takeBranch ? branchAddress : nextPC ) : ( opCode[1,1] ? jumpAddress : loadAddress );
     }
@@ -217,7 +223,9 @@ algorithm branchcomparison(
     uint1   unsignedcompare <:: __unsigned(sourceReg1) < __unsigned(sourceReg2);
     uint1   signedcompare <:: __signed(sourceReg1) < __signed(sourceReg2);
     uint4   flags <:: { unsignedcompare, signedcompare, 1b0, isequal };
-    takeBranch := function3[0,1] ^ flags[ function3[1,2], 1 ];
+    always_after {
+        takeBranch = function3[0,1] ^ flags[ function3[1,2], 1 ];
+    }
 }
 
 // COMPRESSED INSTRUCTION EXPANSION
@@ -247,7 +255,7 @@ algorithm compressed01(
     output  uint30  i32
 ) <autorun> {
     // CBalu(i16).logical2 -> SUB XOR OR AND
-    uint3   opbits <: ( ^CBalu(i16).logical2 ) ? { 1b1, CBalu(i16).logical2[1,1], 1b0 } : {3{CBalu(i16).logical2[0,1]}};
+    uint3   opbits <:: ( ^CBalu(i16).logical2 ) ? { 1b1, CBalu(i16).logical2[1,1], 1b0 } : {3{CBalu(i16).logical2[0,1]}};
 
     always_after {
         switch( i16[13,3] ) {
@@ -348,17 +356,15 @@ algorithm counter40(
     input   uint1   update,
     output  uint40  counter(0)
 ) <autorun,reginputs> {
-    uint40  plus1 <:: counter + 1;
-    always {
-        if( update ) { counter = plus1; }
+    always_after {
+        counter = counter + update;
     }
 }
 algorithm counter40always(
     output  uint40  counter(0)
 ) <autorun,reginputs> {
-    uint40  plus1 <:: counter + 1;
-    always {
-        counter = plus1;
+    always_after {
+        counter = counter + 1;
     }
 }
 algorithm csrf(
@@ -369,7 +375,7 @@ algorithm csrf(
     input   uint1   update,
     input   uint5   newflags
 ) <autorun,reginputs> {
-    always {
+    always_after {
         if( update ) {
             CSRf = newflags;
         } else {
@@ -442,9 +448,9 @@ algorithm CSRblock(
     CSRF0.writetype := 0; CSRF1.writetype := 0; CSRF0.update := updateFPUflags & ~SMT;  CSRF1.update := updateFPUflags & SMT;
 
     // PASS PRESENT FPU FLAGS TO THE FPU
-    FPUflags ::= SMT ? CSRF1.CSRf[0,5] : CSRF0.CSRf[0,5];
+    FPUflags := SMT ? CSRF1.CSRf[0,5] : CSRF0.CSRf[0,5];
 
-    always {
+    always_after {
         if( start ) {
             result = 0;
             switch( CSR(instruction).csr[8,4] ) {
@@ -516,7 +522,7 @@ algorithm aluA (
     uint32  add <:: memoryinput + sourceReg2;
     alulogic LOGIC( sourceReg1 <: memoryinput, operand2 <: sourceReg2 );
 
-    always {
+    always_after {
         if( function7[4,1] ) {
             result = ( function7[2,1] ^ comparison ) ? memoryinput : sourceReg2;    // AMOMAX[U] AMOMIN[U]
         } else {

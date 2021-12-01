@@ -51,7 +51,7 @@ algorithm background_writer(
     // COPPER PROGRAM FLAGS
     copper.addr0 := PC; copper.wenable1 := 1;
 
-    always {
+    always_after {
         switch( background_update ) {
             case 2b00: {
                 // UPDATE THE BACKGROUND GENERATOR FROM THE COPPER

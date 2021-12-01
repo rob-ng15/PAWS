@@ -36,7 +36,7 @@ algorithm ps2ascii(
     newascii := 0; asciivalid := 0;
     joystick := { application, nprightup, nprightdown, npleftdown, npleftup, rctrl, rwin, ralt, lalt, npright | right, npleft | left, npdown | down, npup | up, lwin, lctrl, 1b0 };
 
-    always {
+    always_after {
         if( PS2.valid ) {
             switch( PS2.data ) {
                 case 8he0: { startmulti = 1; }
@@ -261,7 +261,7 @@ algorithm ps2(
     valid := 0;                                     error := 0;                                         clk_edge := 0;
 
     // Filter the PS/2 clock
-    always {
+    always_before {
         clk_filter = { ps2clk_ext, clk_filter[1,3] };
         switch( clk_filter ) {
             case 4b1100: { ps2_clk_in = 1; }
@@ -273,6 +273,8 @@ algorithm ps2(
             }
             default: {}
         }
+    }
+    always_after {
         // Process the PS/2 data bit
         if( clk_edge ) {
             switch( bit_count ) {

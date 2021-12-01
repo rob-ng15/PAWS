@@ -87,22 +87,18 @@ algorithm douintdivide(
 ) <autorun,reginputs> {
     uint32  temporary <:: { remainder[0,31], dividend[bit,1] };
     uint1   bitresult <:: __unsigned(temporary) >= __unsigned(divisor);
-    uint6   bit(63);                                    uint6   bitNEXT <:: bit - 1;
+    uint6   bit(63);
 
     busy := start | ( ~&bit );
-    always {
-        if( ~&bit ) {
-            quotient[bit,1] = bitresult;
-            remainder = __unsigned(temporary) - ( bitresult ? __unsigned(divisor) : 0 );
-            bit = bitNEXT;
-        }
-    }
-
-    if( ~reset ) { bit = 63; }
-
-    while(1) {
+    always_after {
         if( start ) {
             bit = 31; quotient = 0; remainder = 0;
+        } else {
+            if( ~&bit ) {
+                quotient[bit,1] = bitresult;
+                remainder = __unsigned(temporary) - ( bitresult ? __unsigned(divisor) : 0 );
+                bit = bit - 1;
+            }
         }
     }
 }
@@ -145,7 +141,7 @@ algorithm douintmul(
     output  uint64  product64,
 ) <autorun> {
     uint64  product <:: factor_1 * factor_2;
-    always {
+    always_after {
         product64 = productsign ? -product : product;
     }
 }
@@ -167,7 +163,7 @@ algorithm aluMM(
 
     douintmul UINTMUL( factor_1 <: sourceReg1_unsigned, factor_2 <: sourceReg2_unsigned, productsign <: productsign );
 
-    always {
+    always_after {
         // SELECT HIGH OR LOW PART
         result = UINTMUL.product64[ { |function3, 5b0 }, 32 ];
     }

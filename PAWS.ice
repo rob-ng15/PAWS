@@ -304,11 +304,8 @@ $$end
 
 // RAM - SDRAM CONTROLLER VIA EVICTION CACHE - MEMORY IS 16 BIT
 // EVICTION CACHE CONTROLLER - DIRECTLY MAPPED CACHE - WRITE TO SDRAM ONLY IF EVICTING FROM THE CACHE
-bitfield cachetag{
-    uint1   needswrite,
-    uint1   valid,
-    uint12  partaddress
-}
+bitfield cachetag{ uint1 needswrite, uint1 valid, uint12 partaddress }
+
 algorithm cachecontroller(
     sdram_user      sio,
     input   uint26  address,
@@ -364,18 +361,18 @@ algorithm cachecontroller(
         doread = readflag; dowrite = writeflag;
         if( doread | dowrite ) {
             busy = 1;
-            ++: // WAIT FOR CACHE
+            ++:                                                                                                                                 // WAIT FOR CACHE
             if( cachetagmatch ) {
-                CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;
+                CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;                                                      // IN CACHE, UPDATE IF WRITE
             } else {
-                if( tags.rdata0[13,1] ) { while( SDRAM.busy ) {} sdramaddress = { tags.rdata0[0,12], address[1,13], 1b0 }; sdramwrite = 1; } else {}   // EVICT FROM CACHE TO SDRAM
-
-                // READ FROM SDRAM FOR READ AND 8 BIT WRITES (AND MODIFY) AND WRITE TO CACHE, OR WRITE DIRECTLY TO CACHE IF 16 BIT WRITE
+                if( cachetag(tags.rdata0).needswrite ) {                                                                                        // CHECK IF CACHE LINE IS OCCUPIED
+                    while( SDRAM.busy ) {} sdramaddress = { cachetag(tags.rdata0).partaddress, address[1,13], 1b0 }; sdramwrite = 1;            // EVICT FROM CACHE TO SDRAM
+                }
                 if( doread | ( dowrite & byteaccess ) ) {
-                    while( SDRAM.busy ) {} sdramaddress = address; sdramread = 1; while( SDRAM.busy ) {}
-                    CW.needwritetosdram = dowrite; CW.writedata = dowrite ? writethrough : SDRAM.readdata; CW.update = 1;
+                    while( SDRAM.busy ) {} sdramaddress = address; sdramread = 1; while( SDRAM.busy ) {}                                        // READ FOR READ OR 8 BIT WRITE
+                    CW.needwritetosdram = dowrite; CW.writedata = dowrite ? writethrough : SDRAM.readdata; CW.update = 1;                       // UPDATE THE CACHE
                 } else {
-                    CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;
+                    CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;                                                  // UPDATE CACHE FOR 16 BIT WRITE
                 }
             }
             busy = 0;
@@ -391,9 +388,11 @@ algorithm cachewriter(
     simple_dualport_bram_port1 cache,
     simple_dualport_bram_port1 tags
 ) <autorun,reginputs> {
-    cache.wenable1 := update; tags.wenable1 := update;
-    cache.addr1 := address[1,13]; cache.wdata1 := writedata;
-    tags.addr1 := address[1,13]; tags.wdata1 := { needwritetosdram, 1b1, address[14,12] };
+    always_after {
+        cache.wenable1 = update; tags.wenable1 = update;
+        cache.addr1 = address[1,13]; cache.wdata1 = writedata;
+        tags.addr1 = address[1,13]; tags.wdata1 = { needwritetosdram, 1b1, address[14,12] };
+    }
 }
 
 algorithm sdramcontroller(
