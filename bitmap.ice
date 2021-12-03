@@ -8,27 +8,27 @@ algorithm bitmap(
     simple_dualport_bram_port0 bitmap_0B,
     simple_dualport_bram_port0 bitmap_1B,
     input   uint1   framebuffer,
-    input   uint10  pix_x,
-    input   uint10  pix_y,
+    input   uint9   pix_x,
+    input   uint9   pix_y,
     input   uint1   pix_active,
     input   uint1   pix_vblank,
     output! uint6   pixel,
     output! uint1   bitmap_display,
 
     // Pixel reader
-    input   int11   bitmap_x_read,
-    input   int11   bitmap_y_read,
+    input   uint9   bitmap_x_read,
+    input   uint9   bitmap_y_read,
     output  uint7   bitmap_colour_read
 ) <autorun,reginputs> {
     // Pixel x and y fetching 1 in advance due to bram latency
-    uint9   x_plus_one <: pix_x[1,9] + pix_x[0,1];
-    uint8   y_line <: pix_vblank ? 0 : pix_y[1,9];
+    uint9   x_plus_one <: pix_x + 1;
+    uint8   y_line <: pix_vblank ? 0 : pix_y;
     uint9   x_pixel <: pix_active ? x_plus_one : 0;
 
     uint17  address <: y_line * 320 + x_pixel;
 
     // Pixel being read?
-    bitmap_colour_read := ( pix_x[1,9] == bitmap_x_read ) & ( pix_y[1,9] == bitmap_y_read ) ?
+    bitmap_colour_read := ( pix_x == bitmap_x_read ) & ( pix_y == bitmap_y_read ) ?
                             ( framebuffer ? { bitmap_1A.rdata0, bitmap_1R.rdata0, bitmap_1G.rdata0, bitmap_1B.rdata0 } : { bitmap_0A.rdata0, bitmap_0R.rdata0, bitmap_0G.rdata0, bitmap_0B.rdata0 } )
                             : bitmap_colour_read;
 
@@ -182,13 +182,15 @@ algorithm bitmapwriter(
     bitmap_0A.wenable1 := 1; bitmap_0R.wenable1 := 1; bitmap_0G.wenable1 := 1; bitmap_0B.wenable1 := 1;
     bitmap_1A.wenable1 := 1; bitmap_1R.wenable1 := 1; bitmap_1G.wenable1 := 1; bitmap_1B.wenable1 := 1;
 
-    always {
+    always_before {
+        // SELECT ACTUAL COLOUR
+        switch( dithermode ) {
+            case 14: { pixeltowrite = static6bit; }
+            default: { pixeltowrite = DODITHER.condition ? bitmap_colour_write : bitmap_colour_write_alt; }
+        }
+    }
+    always_after {
         if( write_pixel ) {
-            // SELECT ACTUAL COLOUR
-            switch( dithermode ) {
-                case 14: { pixeltowrite = static6bit; }
-                default: { pixeltowrite = DODITHER.condition ? bitmap_colour_write : bitmap_colour_write_alt; }
-            }
             // SET PIXEL ADDRESSS bitmap_y_write * 320 + bitmap_x_write
             if( framebuffer ) {
                 bitmap_1A.addr1 = address; bitmap_1A.wdata1 = pixeltowrite[6,1];

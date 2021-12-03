@@ -222,7 +222,7 @@ algorithm gpu(
     GPUrectangle.start := 0; GPUline.start := 0; GPUcircle.start := 0; GPUtriangle.start := 0; GPUblit.start := 0; GPUcolourblit.start := 0; GPUpixelblock.start := 0;
     gpu_active := ( |gpu_write[1,3] ) | gpu_busy;
 
-    always {
+    always_before {
         switch( gpu_write ) {
             case 0: {}
             case 1: {
@@ -253,7 +253,7 @@ algorithm gpu(
         }
     }
 
-    while(1) {
+    always_after {
         if( gpu_busy ) {
             // COPY OUTPUT TO THE BITMAP WRITER
             onehot( gpu_busy_flags ) {
@@ -269,9 +269,26 @@ algorithm gpu(
     }
 }
 
+// HELPER - DECIDE IF MIN/MAX ARE WITHIN CROP
+algorithm istodraw(
+    input   int11   crop_left,
+    input   int11   crop_right,
+    input   int11   crop_top,
+    input   int11   crop_bottom,
+    input   int11   min_x,
+    input   int11   min_y,
+    input   int11   max_x,
+    input   int11   max_y,
+    output  uint1   draw
+) <autorun> {
+    always_after {
+        draw = ~( ( max_x < crop_left ) | ( max_y < crop_top ) | ( min_x > crop_right ) | ( min_y > crop_bottom ) );
+    }
+}
 // RECTANGLE - OUTPUT PIXELS TO DRAW A RECTANGLE
 algorithm preprectangle(
     input   uint1   start,
+    output  uint1   busy(0),
     input   int11   crop_left,
     input   int11   crop_right,
     input   int11   crop_top,
@@ -289,16 +306,20 @@ algorithm preprectangle(
     uint1   xcompareparam0 <:: ( x < param0 );          uint1   ycompareparam1 <:: ( y < param1 );
     int11   x1 <:: xcompareparam0 ? x : param0;         int11   y1 <:: ycompareparam1 ? y : param1;
     int11   x2 <:: xcompareparam0 ? param0 : x;         int11   y2 <:: ycompareparam1 ? param1 : y;
-
+    istodraw TODRAW( crop_left <: crop_left, crop_right <: crop_right, crop_top <: crop_top, crop_bottom <: crop_bottom,
+                min_x <: min_x, min_y <: min_y, max_x <: max_x, max_y <: max_y );
     todraw := 0;
 
-    always {
+    while(1) {
         if( start ) {
+            busy = 1;
             min_x = ( x1 < crop_left ) ? crop_left : x1;
             min_y = ( y1 < crop_top ) ? crop_top : y1;
             max_x = 1 + ( ( x2 > crop_right ) ? crop_right : x2 );
             max_y = 1 + ( ( y2 > crop_bottom ) ? crop_bottom : y2 );
-            todraw = ~( ( max_x < crop_left ) | ( max_y < crop_top ) | ( min_x > crop_right ) | ( min_y > crop_bottom ) );
+            ++:
+            todraw = TODRAW.draw;
+            busy = 0;
         }
     }
 }
@@ -359,7 +380,7 @@ algorithm rectangle (
         start <: PREP.todraw
     );
 
-    busy := start | PREP.todraw | RECTANGLE.busy;
+    busy := start | PREP.busy | PREP.todraw | RECTANGLE.busy;
 }
 
 // LINE - OUTPUT PIXELS TO DRAW A LINE
@@ -382,7 +403,7 @@ algorithm prepline(
 
     todraw := 0;
 
-    always {
+    always_after {
         if( start ) {
             // Setup drawing a line from x,y to param0,param1 of width param2 in colour
             // Ensure LEFT to RIGHT AND if moving UP or DOWN
@@ -441,7 +462,7 @@ algorithm drawline(
         }
     }
 }
-algorithm line (
+algorithm line(
     input   uint1   start,
     output  uint1   busy(0),
     input   int11   x,
@@ -489,7 +510,7 @@ algorithm drawcircle(
     int11   active_y = uninitialized;                   int11   active_yNEXT <:: active_y - positivenumerator;
     int11   count = uninitialised;                      int11   countNEXT <:: filledcircle ? count - 1 : min_count;
     int11   min_count = uninitialised;                  int11   min_countNEXT <:: min_count + 1;
-    uint1   drawingcircle <:: ( active_y >= active_x ); uint1   drawingsegment <:: ( count != min_count );
+    uint1   drawingcircle <:: ( active_y >= active_x ); uint1   finishsegment <:: ( countNEXT == min_count );
 
     // PLUS OR MINUS OFFSETS
     int11   xcpax <:: xc + active_x;                    int11   xcnax <:: xc - active_x;
@@ -504,7 +525,10 @@ algorithm drawcircle(
             busy = 1;
             active_x = 0; active_y = radius; count = radius; min_count = (-1); numerator = start_numerator;
             while( drawingcircle ) {
-                while( drawingsegment ) {
+                if( ~|count & ~|active_x & |draw_sectors ) {
+                    // DETECT IF CENTRE PIXEL, OUTPUT ONCE
+                    bitmap_x_write = xc; bitmap_y_write = yc; bitmap_write = 1;
+                } else {
                     // OUTPUT PIXELS IN THE 8 SEGMENTS/ARCS AS PER MASK
                     bitmap_x_write = xcpax; bitmap_y_write = ycpc;      if( draw_sectors[0,1] ) { bitmap_write = 1; ++: }
                     bitmap_y_write = ycnc;                              if( draw_sectors[1,1] ) { bitmap_write = 1; ++: }
@@ -514,9 +538,12 @@ algorithm drawcircle(
                     bitmap_y_write = ycnax;                             if( draw_sectors[5,1] ) { bitmap_write = 1; ++: }
                     bitmap_x_write = xcnc;                              if( draw_sectors[6,1] ) { bitmap_write = 1; ++: }
                     bitmap_y_write = ycpax;                             if( draw_sectors[7,1] ) { bitmap_write = 1; }
+                }
+                if( finishsegment ) {
+                    active_x = active_xNEXT; active_y = active_yNEXT; count = active_y; min_count = min_countNEXT; numerator = new_numerator;
+                } else {
                     count = countNEXT;
                 }
-                active_x = active_xNEXT; active_y = active_yNEXT; count = active_y; min_count = min_countNEXT; numerator = new_numerator;
             }
             busy = 0;
         }
@@ -577,6 +604,7 @@ algorithm preptriangle(
     output  int11   max_y,
     output  uint1   todraw
 ) <autorun> {
+    // TEMPORARY STORAGE FOR SWAPPING VARIABLES
     int16 tx = uninitialised; int16 ty = uninitialised;
     uint1   x1x2 <: ( x1 < x2 );                    uint1   y1y2 <: ( y1 < y2 );
     uint1   x1x3 <: ( x1 < x3 );                    uint1   y1y3 <: ( y1 < y3 );
@@ -635,21 +663,25 @@ algorithm drawtriangle(
     output  uint1   bitmap_write
 ) <autorun> {
     // Filled triangle calculations
-    // Is the point px,py inside the triangle given by px,py x1,y1 x2,y2?
+    // Is the point px,py inside the triangle given by x0,x1 x1,y1 x2,y2?
     uint1   inTriangle <:: ( (( x2 - x1 ) * ( py - y1 ) - ( y2 - y1 ) * ( px - x1 )) >= 0 ) &
                             ( (( x0 - x2 ) * ( py - y2 ) - ( y0 - y2 ) * ( px - x2 )) >= 0 ) &
                             ( (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 )) >= 0 );
     uint1   beenInTriangle = uninitialized;
-    uint1   rightleft <:: ( max_x - px ) < ( px - min_x );
+
+    // CLOSER TO LEFT OR RIGHT OF THE BOUNDING BOX
+    uint1   leftright <:: ( px - min_x ) < ( max_x - px );
 
     // WORK COORDINATES AND DIRECTION
     int11   px = uninitialized;                         int11   pxNEXT <:: px + ( dx ? 1 : (-1) );
     int11   py = uninitialized;                         int11   pyNEXT <:: py + 1;
     uint1   dx = uninitialized;
+
+    // DETECT IF AT LEFT/RIGHT/BOTTOM OF THE BOUNDING BOX
     uint1   stillinline <:: ( dx & ( px != max_x ) ) | ( ~dx & ( px != min_x ));
     uint1   working <:: ( py != max_y );
 
-    bitmap_x_write := px; bitmap_y_write := py; bitmap_write := 0;
+    bitmap_x_write := px; bitmap_y_write := py; bitmap_write := busy & inTriangle;
 
     while(1) {
         if( start ) {
@@ -657,10 +689,9 @@ algorithm drawtriangle(
             dx = 1; px = min_x; py = min_y;
             while( working ) {
                 beenInTriangle = inTriangle | beenInTriangle;
-                bitmap_write = inTriangle;
                 if( beenInTriangle ^ inTriangle ) {
                     // Exited the triangle, move to the next line
-                    beenInTriangle = 0; py = pyNEXT; px = rightleft ? max_x : min_x; dx = ~rightleft;
+                    beenInTriangle = 0; py = pyNEXT; px = leftright ? min_x : max_x; dx = leftright;
                 } else {
                     // MOVE TO THE NEXT PIXEL ON THE LINE LEFT/RIGHT OR DOWN AND SWITCH DIRECTION IF AT END
                     if( stillinline ) { px = pxNEXT; } else { dx = ~dx; beenInTriangle = 0; py = pyNEXT; }
@@ -711,8 +742,28 @@ algorithm blitscale(
     input   uint2   scale,
     output  int11   scaled
 ) <autorun> {
-    always {
-        scaled = offset << scale;
+    always_after {
+        switch( scale ) {
+            case 0: { scaled = offset; }
+            case 1: { scaled = { offset, 1b0 }; }
+            case 2: { scaled = { offset, 2b00 }; }
+            case 3: { scaled = { offset, 3b000 }; }
+        }
+//        scaled = offset << scale;
+    }
+}
+algorithm blitmaxcount(
+    input   uint2   scale,
+    output  uint4   max
+) <autorun> {
+    always_after {
+        switch( scale ) {
+            case 0: { max = 1; }
+            case 1: { max = 2; }
+            case 2: { max = 4; }
+            case 3: { max = 8; }
+        }
+//        max = 1 << scale;
     }
 }
 algorithm   blittilexy(
@@ -729,7 +780,7 @@ algorithm   blittilexy(
     uint1   action00 <:: ( ~|action[0,2] );         uint1   action01 <:: ( action[0,2] == 2b01 );           uint1   action10 <:: ( action[0,2] == 2b10 );
 
     // find y and x positions within the tile/character bitmap handling rotation or reflection
-    always {
+    always_after {
         xinblittile = ( action[2,1] ?  action00 ? revx4 : action01 ? py[0,4] : action10 ? px[0,4] : revy4 : action[0,1] ? px[0,4] : revx4 );
         yinblittile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy4 : revx4 : action[1,1] ? revy4 :  py[0,4];
         xinchartile = ( action[2,1] ?  action00 ? revx3 : action01 ? py[0,3] : action10 ? px[0,3] : revy3 : action[0,1] ?  px[0,3] : revx3 );
@@ -750,12 +801,11 @@ algorithm blittilebitmapwriter(
     simple_dualport_bram_port1 blit1tilemap,
     simple_dualport_bram_port1 characterGenerator8x8
 ) <autorun,reginputs> {
-    blit1tilemap.wenable1 := 1;
-    characterGenerator8x8.wenable1 := 1;
-    blit1tilemap.addr1 := { blit1_writer_tile, blit1_writer_line };
-    blit1tilemap.wdata1 := blit1_writer_bitmap;
-    characterGenerator8x8.addr1 := { character_writer_character, character_writer_line };
-    characterGenerator8x8.wdata1 := character_writer_bitmap;
+    blit1tilemap.wenable1 := 1; characterGenerator8x8.wenable1 := 1;
+    always_after {
+        blit1tilemap.addr1 = { blit1_writer_tile, blit1_writer_line }; blit1tilemap.wdata1 = blit1_writer_bitmap;
+        characterGenerator8x8.addr1 = { character_writer_character, character_writer_line }; characterGenerator8x8.wdata1 = character_writer_bitmap;
+    }
 }
 
 algorithm blit(
@@ -782,10 +832,12 @@ algorithm blit(
     uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
-    uint4   maxcount <:: ( 1 << scale );
 
-    // MULTIPLIER FOR THE SIZE
+    // MAX PIXELS IN TILE
     uint5   max_pixels <:: tilecharacter ? 16 : 8;
+
+    // MAXCOUNT FOR THE SCALE
+    blitmaxcount COUNT( scale <: scale );
 
     // FIND X AND Y WITHIN THE TILE/CHARACTER BITMAP
     blittilexy BTXY( px <: px, py <: py, action <: action );
@@ -801,9 +853,9 @@ algorithm blit(
                 px = 0;
                 while( px != max_pixels ) {
                     y2 = 0;
-                    while( y2 != maxcount ) {
+                    while( y2 != COUNT.max ) {
                         x2 = 0;
-                        while( x2 != maxcount ) {
+                        while( x2 != COUNT.max ) {
                             bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1];
                             x2 = x2NEXT;
                         }
@@ -832,8 +884,8 @@ algorithm cololurblittilexy(
     uint1   action00 <:: ( ~|action[0,2] );         uint1   action01 <:: ( action[0,2] == 2b01 );           uint1   action10 <:: ( action[0,2] == 2b10 );
 
     // find y and x positions within the tile bitmap handling rotation or reflection
-    always {
-        xintile = action[2,1] ?  action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
+    always_after {
+        xintile = action[2,1] ? action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
         yintile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy : revx : action[1,1] ? revy :  py[0,4];
     }
 }
@@ -847,8 +899,10 @@ algorithm colourblittilebitmapwriter(
     simple_dualport_bram_port1 colourblittilemap,
 ) <autorun,reginputs> {
     colourblittilemap.wenable1 := 1;
-    colourblittilemap.addr1 := { colourblit_writer_tile, colourblit_writer_line, colourblit_writer_pixel };
-    colourblittilemap.wdata1 := colourblit_writer_colour;
+    always_after {
+        colourblittilemap.addr1 = { colourblit_writer_tile, colourblit_writer_line, colourblit_writer_pixel };
+        colourblittilemap.wdata1 = colourblit_writer_colour;
+    }
 }
 algorithm colourblit(
     input   uint1   start,
@@ -873,7 +927,9 @@ algorithm colourblit(
     uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
     uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
-    uint4   maxcount <:: ( 1 << scale );
+
+    // MAXCOUNT FOR THE SCALE
+    blitmaxcount COUNT( scale <: scale );
 
     // FIND X AND Y WITHIN THE TILE BITMAP
     cololurblittilexy CBTXY( px <: px, py <: py, action <: action );
@@ -889,9 +945,9 @@ algorithm colourblit(
                 px = 0;
                 while( ~px[4,1] ) {
                     x2 = 0;
-                    while( x2 != maxcount ) {
+                    while( x2 != COUNT.max ) {
                         y2 = 0;
-                        while( y2 != maxcount ) { bitmap_write = ~colour7(colourblittilemap.rdata0).alpha; y2 = y2NEXT; }
+                        while( y2 != COUNT.max ) { bitmap_write = ~colour7(colourblittilemap.rdata0).alpha; y2 = y2NEXT; }
                         x2 = x2NEXT;
                     }
                     px = pxNEXT;
@@ -926,27 +982,28 @@ algorithm pixelblock(
     output  uint1   bitmap_write
 ) <autorun,reginputs> {
     // POSITION ON THE SCREEN
-    int11   x1 = uninitialised;                         int11   x1NEXT <:: x1 + 1;
-    int11   y1 = uninitialised;                         int11   y1NEXT <:: y1 + 1;
+    int11   x1 = uninitialised;                     int11   y1 = uninitialised;
     int11   max_x <:: x + width;
 
     bitmap_x_write := x1; bitmap_y_write := y1; bitmap_write := ( ( newpixel == 1 ) & ( colour7 != ignorecolour ) ) | ( newpixel == 2 );
     bitmap_colour_write := ( newpixel == 1 ) ? colour7 : { 1b0, colour8r[6,2], colour8g[6,2], colour8b[6,2] };
 
-    while(1) {
+    always_after {
         if( start ) {
-            busy = 1;
-            x1 = x; y1 = y;
-            while( busy ) {
+            busy = 1; x1 = x; y1 = y;
+        } else {
+            if( busy ) {
                 if( &newpixel ) { busy = 0; }
                 if( x1 != max_x ) {
-                    if( |newpixel ) { x1 = x1NEXT; }
+                    if( |newpixel ) { x1 = x1 + 1; }
                 } else {
-                    x1 = x; y1 = y1NEXT;
+                    x1 = x; y1 = y1 + 1;
                 }
             }
         }
     }
+
+    if( ~reset ) { busy = 0; }
 }
 
 // Vector Block
@@ -961,7 +1018,7 @@ algorithm vdeltasignextend(
     input   uint6   d,
     output  int11   delta
 ) <autorun> {
-    always {
+    always_after {
         delta = { {11{d[5,1]}}, d };
     }
 }
@@ -971,7 +1028,7 @@ algorithm scaledetla(
     input   int11   delta,
     output  int11   scaled
 ) <autorun> {
-    always {
+    always_after {
         scaled = ( scale[2,1] ? ( __signed(delta) >>> scale[0,2] ) : ( delta << scale[0,2] ) );
     }
 }
@@ -996,7 +1053,7 @@ algorithm centreplusdelta(
     int11   xcpdy <:: xc + SDY.scaled;                  int11   xcndy <:: xc - SDY.scaled;
     int11   ycpdx <:: yc + SDX.scaled;                  int11   ycndx <:: yc - SDX.scaled;
 
-    always {
+    always_after {
         if( action[2,1] ) {
             // ROTATION
             switch( action[0,2] ) {
@@ -1022,8 +1079,10 @@ algorithm vertexwriter(
     simple_dualport_bram_port1 vertex
 ) <autorun,reginputs> {
     vertex.wenable1 := 1;
-    vertex.addr1 := { vertices_writer_block, vertices_writer_vertex };
-    vertex.wdata1 := { vertices_writer_active, __unsigned(vertices_writer_xdelta), __unsigned(vertices_writer_ydelta) };
+    always_after {
+        vertex.addr1 = { vertices_writer_block, vertices_writer_vertex };
+        vertex.wdata1 = { vertices_writer_active, __unsigned(vertices_writer_xdelta), __unsigned(vertices_writer_ydelta) };
+    }
 }
 algorithm vectors(
     simple_dualport_bram_port0 vertex,

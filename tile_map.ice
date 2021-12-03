@@ -46,7 +46,7 @@ algorithm   calcoffset(
     output  uint1   MAX,
     output  int5    NEXT
 ) <autorun> {
-    always {
+    always_after {
         MIN = ( offset == -15 );                    PREV = ( offset - 1 );
         MAX = ( offset == 15 );                     NEXT = ( offset + 1 );
     }
@@ -103,7 +103,7 @@ algorithm tile_map_writer(
     // TILEMAP WRITE FLAGS
     tiles.wenable1 := 1; tiles_copy.wenable1 := 1; colours.wenable1 := 1; colours_copy.wenable1 := 1;
 
-    always {
+    always_after {
         if( tm_write ) {
             // Write character to the tilemap
             tiles.addr1 = write_address; tiles.wdata1 = tm_character;
@@ -211,6 +211,9 @@ algorithm tilebitmapwriter(
     simple_dualport_bram_port1 tiles16x16
 ) <autorun,reginputs> {
     tiles16x16.wenable1 := 1;
-    tiles16x16.addr1 := { tile_writer_tile, tile_writer_line };
-    tiles16x16.wdata1 := tile_writer_bitmap;
+    always_after {
+        tiles16x16.addr1 = { tile_writer_tile, tile_writer_line };
+        tiles16x16.wdata1 = tile_writer_bitmap;
+    }
 }
+
