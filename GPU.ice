@@ -743,7 +743,13 @@ algorithm blitscale(
     output  int11   scaled
 ) <autorun> {
     always_after {
-        scaled = offset << scale;
+        switch( scale ) {
+            case 0: { scaled = offset; }
+            case 1: { scaled = { offset, 1b0 }; }
+            case 2: { scaled = { offset, 2b00 }; }
+            case 3: { scaled = { offset, 3b000 }; }
+        }
+//        scaled = offset << scale;
     }
 }
 algorithm blitmaxcount(
@@ -751,7 +757,13 @@ algorithm blitmaxcount(
     output  uint4   max
 ) <autorun> {
     always_after {
-        max = 1 << scale;
+        switch( scale ) {
+            case 0: { max = 1; }
+            case 1: { max = 2; }
+            case 2: { max = 4; }
+            case 3: { max = 8; }
+        }
+//        max = 1 << scale;
     }
 }
 algorithm   blittilexy(
@@ -873,7 +885,7 @@ algorithm cololurblittilexy(
 
     // find y and x positions within the tile bitmap handling rotation or reflection
     always_after {
-        xintile = action[2,1] ?  action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
+        xintile = action[2,1] ? action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
         yintile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy : revx : action[1,1] ? revy :  py[0,4];
     }
 }
@@ -970,27 +982,28 @@ algorithm pixelblock(
     output  uint1   bitmap_write
 ) <autorun,reginputs> {
     // POSITION ON THE SCREEN
-    int11   x1 = uninitialised;                         int11   x1NEXT <:: x1 + 1;
-    int11   y1 = uninitialised;                         int11   y1NEXT <:: y1 + 1;
+    int11   x1 = uninitialised;                     int11   y1 = uninitialised;
     int11   max_x <:: x + width;
 
     bitmap_x_write := x1; bitmap_y_write := y1; bitmap_write := ( ( newpixel == 1 ) & ( colour7 != ignorecolour ) ) | ( newpixel == 2 );
     bitmap_colour_write := ( newpixel == 1 ) ? colour7 : { 1b0, colour8r[6,2], colour8g[6,2], colour8b[6,2] };
 
-    while(1) {
+    always_after {
         if( start ) {
-            busy = 1;
-            x1 = x; y1 = y;
-            while( busy ) {
+            busy = 1; x1 = x; y1 = y;
+        } else {
+            if( busy ) {
                 if( &newpixel ) { busy = 0; }
                 if( x1 != max_x ) {
-                    if( |newpixel ) { x1 = x1NEXT; }
+                    if( |newpixel ) { x1 = x1 + 1; }
                 } else {
-                    x1 = x; y1 = y1NEXT;
+                    x1 = x; y1 = y1 + 1;
                 }
             }
         }
     }
+
+    if( ~reset ) { busy = 0; }
 }
 
 // Vector Block

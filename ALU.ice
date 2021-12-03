@@ -2,14 +2,18 @@
 algorithm alushift(
     input   uint32  sourceReg1,
     input   uint5   shiftcount,
-    output  uint32  SLL,
-    output  uint32  SRL,
-    output  uint32  SRA
+    input   uint1   RA,
+    output  uint32  SL,
+    output  uint32  SR,
 ) <autorun> {
+    uint1   rshiftvalue <:: RA & sourceReg1[31,1];
     always_after {
-        SLL = sourceReg1 << shiftcount;
-        SRL = sourceReg1 >> shiftcount;
-        SRA = __signed(sourceReg1) >>> shiftcount;
+        switch( shiftcount ) {
+            case 0:     { SL = sourceReg1;                          SR = sourceReg1;  }
+            $$for i=1,31 do
+            case $i$:   { SL = { sourceReg1[ 0, $32-i$ ], $i$b0 };  SR = { {$i${rshiftvalue}}, sourceReg1[ $i$, $32-i$ ] }; }
+            $$end
+        }
     }
 }
 algorithm aluaddsub(
@@ -57,17 +61,17 @@ algorithm alu(
     uint1   SLTU <:: opCode[3,1] ? ( ~|rs1 ) ? ( |operand2 ) : unsignedcompare : ( operand2 == 1 ) ? ( ~|sourceReg1 ) : unsignedcompare;
 
     aluaddsub ADDSUB( dosub <: dosub, sourceReg1 <: sourceReg1, operand2 <: operand2 );
-    alushift SHIFTS( sourceReg1 <: sourceReg1, shiftcount <: shiftcount );
+    alushift SHIFTS( sourceReg1 <: sourceReg1, shiftcount <: shiftcount, RA <: function7[5,1] );
     alulogic LOGIC( sourceReg1 <: sourceReg1, operand2 <: operand2 );
 
     always_after {
         switch( function3 ) {
             case 3b000: { result = ADDSUB.AS; }
-            case 3b001: { result = SHIFTS.SLL; }
+            case 3b001: { result = SHIFTS.SL; }
             case 3b010: { result = SLT; }
             case 3b011: { result = SLTU; }
             case 3b100: { result = LOGIC.XOR; }
-            case 3b101: { result = function7[5,1] ? SHIFTS.SRA : SHIFTS.SRL; }
+            case 3b101: { result = SHIFTS.SR; }
             case 3b110: { result = LOGIC.OR; }
             case 3b111: { result = LOGIC.AND; }
         }

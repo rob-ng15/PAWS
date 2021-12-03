@@ -141,7 +141,10 @@ algorithm PAWSCPU(
 
     readmemory := 0; writememory := 0; EXECUTESLOW.start := 0; COMMIT := 0;
 
-    if( ~reset ) { SMT = 0; pc = 0; }                                                                                                               // ON RESET SET PC AND SMT TO 0
+    if( ~reset ) {
+        SMT = 0; pc = 0;                                                                                                                            // ON RESET SET PC AND SMT TO 0
+        while( memorybusy | EXECUTESLOW.busy ) {}                                                                                                   // WAIT FDR MEMORY AND CPU TO FINISH
+    }
 
     while(1) {
         address = PC; readmemory = 1; while( memorybusy ) {}                                                                                        // FETCH POTENTIAL COMPRESSED OR 1ST 16 BITS
@@ -268,12 +271,11 @@ algorithm cpuexecuteSLOWPATH(
                         memoryoutput = sourceReg2;
                     }
                 }
-                default: {                                                                  // FPU AND INTEGER DIVISION
+                default: {
                     if( opCode[4,1] & FCLASS.FASTPATHFPU ) {
-                        // COMPARISONS, MIN/MAX, SIGN MANIPULATION, CLASSIFICTIONS AND MOVE F-> and I->F
-                        frd = FPUFAST.frd; result = FPUFAST.result;
+                        frd = FPUFAST.frd; result = FPUFAST.result;                         // COMPARISONS, MIN/MAX, SIGN MANIPULATION, CLASSIFICTIONS AND MOVE F-> and I->F
                     } else {
-                        FPUSLOW.start = opCode[4,1]; ALUMD.start = ~opCode[4,1];
+                        FPUSLOW.start = opCode[4,1]; ALUMD.start = ~opCode[4,1];            // FPU AND INTEGER DIVISION
                         while( FPUSLOW.busy | ALUMD.busy ) {}
                         frd = opCode[4,1] & FPUSLOW.frd;
                         result = opCode[4,1] ? FPUSLOW.result : ALUMD.result;

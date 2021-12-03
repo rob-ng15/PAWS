@@ -558,16 +558,16 @@ algorithm equaliseexpaddsub(
     output  int10   resultexp,
 ) <autorun> {
     // BREAK DOWN INITIAL float32 INPUTS - SWITCH SIGN OF B IF SUBTRACTION
-    uint48  sigA <:: { 2b01, fp32(a).fraction, 23b0 };
-    uint48  sigB <:: { 2b01, fp32(b).fraction, 23b0 };
-    int10   expA <:: fp32(a).exponent;
-    int10   expB <:: fp32(b).exponent;
+    uint48  sigA <:: { 2b01, fp32(a).fraction, 23b0 };                                                  uint48  sigB <:: { 2b01, fp32(b).fraction, 23b0 };
+    int10   expA <:: fp32(a).exponent;                                                                  int10   expB <:: fp32(b).exponent;
+    uint48  aligned = uninitialised;                                                                    uint1   AvB <:: ( expA < expB );
 
     always_after {
-        if( expA < expB ) {
-            newsigA = sigA >> ( expB - expA ); resultexp = expB - 126; newsigB = sigB;
+        aligned = ( AvB ? sigA : sigB ) >> ( AvB ? ( expB - expA ) : ( expA - expB ) );
+        if( AvB ) {
+            newsigA = aligned; resultexp = expB - 126; newsigB = sigB;
         } else {
-            newsigB = sigB >> ( expA - expB ); resultexp = expA - 126; newsigA = sigA;
+            newsigB = aligned; resultexp = expA - 126; newsigA = sigA;
         }
     }
 }
