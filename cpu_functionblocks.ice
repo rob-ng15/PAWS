@@ -219,10 +219,7 @@ algorithm branchcomparison(
     input   int32   sourceReg2,
     output  uint1   takeBranch
 ) <autorun> {
-    uint1   isequal <:: sourceReg1 == sourceReg2;
-    uint1   unsignedcompare <:: __unsigned(sourceReg1) < __unsigned(sourceReg2);
-    uint1   signedcompare <:: __signed(sourceReg1) < __signed(sourceReg2);
-    uint4   flags <:: { unsignedcompare, signedcompare, 1b0, isequal };
+    uint4   flags <:: { ( __unsigned(sourceReg1) < __unsigned(sourceReg2) ), ( __signed(sourceReg1) < __signed(sourceReg2) ), 1b0, ( sourceReg1 == sourceReg2 ) };
     always_after {
         takeBranch = function3[0,1] ^ flags[ function3[1,2], 1 ];
     }
@@ -519,7 +516,6 @@ algorithm aluA (
     uint1   unsignedcompare <:: ( __unsigned(memoryinput) < __unsigned(sourceReg2) );
     uint1   signedcompare <:: ( __signed(memoryinput) < __signed(sourceReg2) );
     uint1   comparison <:: function7[3,1] ? unsignedcompare : signedcompare;
-    uint32  add <:: memoryinput + sourceReg2;
     alulogic LOGIC( sourceReg1 <: memoryinput, operand2 <: sourceReg2 );
 
     always_after {
@@ -527,7 +523,7 @@ algorithm aluA (
             result = ( function7[2,1] ^ comparison ) ? memoryinput : sourceReg2;    // AMOMAX[U] AMOMIN[U]
         } else {
             switch( function7[0,4] ) {
-                default: { result = add; }                                          // AMOADD
+                default: { result = memoryinput + sourceReg2; }                     // AMOADD
                 case 4b0001: { result = sourceReg2; }                               // AMOSWAP
                 case 4b0100: { result = LOGIC.XOR; }                                // AMOXOR
                 case 4b1000: { result = LOGIC.OR; }                                 // AMOOR
