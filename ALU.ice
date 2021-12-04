@@ -22,9 +22,9 @@ algorithm aluaddsub(
     input   uint32  operand2,
     output  uint32  AS
 ) <autorun> {
-    int32   negoperand2 <: -operand2;
+//    int32   negoperand2 <: -operand2;
     always_after {
-        AS = sourceReg1 + ( dosub ? negoperand2 : operand2 );
+        AS = sourceReg1 + ( dosub ? -operand2 : operand2 );
     }
 }
 algorithm alulogic(
