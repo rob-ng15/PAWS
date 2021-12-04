@@ -106,33 +106,27 @@ algorithm gpu_queue(
 
     while(1) {
         if( |gpu_write ) {
-            if( &gpu_write ) {
-                // COMMAND QUEUE FOR QUADRILATERALS, SPLIT INTO TWO TRIANGLES THEN DISPATCH
-                queue_busy = 1;
-                while( gpu_active ) {}
-                GPU.gpu_dithermode = queue_dithermode; GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt;
-                GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
-                GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
-                GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
-                GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR;
-                GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+            // WAIT FOR GPU TO FINISH, SET UP COMMAND / 1ST TRIANGLE FOR QUADRILATERALS
+            queue_busy = 1; while( gpu_active ) {}
+
+            GPU.gpu_dithermode = queue_dithermode; GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt;
+            GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
+            GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
+            GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
+            GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+
+            if( &queue_write ) {
+                // QUADRILATERAL, SEND FIRST TRIANGLE TO GPU
                 GPU.gpu_write = 6; while( gpu_active ) {}
-                // SECOND TRIANGLE
+                // SECOND TRIANGLE TO GPU
                 GPU.gpu_param0 = queue_param4; GPU.gpu_param1 = queue_param5;
                 GPU.gpu_write = 6;
-                queue_busy = 0;
             } else {
-                // COMMAND QUEUE, LATCH AND WAIT FOR GPU THEN DISPATCH
-                queue_busy = 1;
-                while( gpu_active ) {}
-                GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt; GPU.gpu_dithermode = queue_dithermode;
-                GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
-                GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
-                GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
-                GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+                // EVERYTHING ELSE, SEND TO GPU
                 GPU.gpu_write = queue_write;
-                queue_busy = 0;
             }
+
+            queue_busy = 0;
         }
     }
 }
