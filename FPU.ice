@@ -229,12 +229,7 @@ algorithm floatminmax(
 
     flags := { NAN, 4b0000 };
     always_after {
-        if( NAN ) {
-            // sNAN or both qNAN
-            result = 32h7fc00000;
-        } else {
-            result = classA[1,1] ? ( classB[1,1] ? 32h7fc00000 : sourceReg2F ) : classB[1,1] | ( function3 ^ less ) ? sourceReg1F : sourceReg2F;
-        }
+        result = NAN ? 32h7fc00000 : classA[1,1] ? ( classB[1,1] ? 32h7fc00000 : sourceReg2F ) : classB[1,1] | ( function3 ^ less ) ? sourceReg1F : sourceReg2F;
     }
 }
 
@@ -251,17 +246,10 @@ algorithm floatcomparison(
     output  uint1   result
 ) <autorun> {
     uint1   NAN <:: ( classA[1,1] | classA[2,1] | classB[1,1] | classB[2,1] );
-
-    flags := { function3[1,1] ? ( classA[2,1] | classB[2,1] ) : NAN, 4b0000 }; result := 0;
+    uint4   comparison <:: { 1b0, equal, less, less | equal };
+    flags := { function3[1,1] ? ( classA[2,1] | classB[2,1] ) : NAN, 4b0000 };
     always_after {
-        if( ~NAN ) {
-            switch( function3 ) {
-                case 2b00: { result = ( less | equal ); }
-                case 2b01: { result = less; }
-                case 2b10: { result = equal; }
-                default: {}
-            }
-        }
+        result = ~NAN & comparison[ function3, 1 ];
     }
 }
 
@@ -392,9 +380,9 @@ algorithm clz48(
     output! uint6   count
 ) <autorun> {
     uint16  bitstreamh <:: bitstream[32,16];        uint32  bitstreaml <:: bitstream[0,32];
-    uint1   zerohigh <:: ( ~|bitstreamh );          uint6   clz = uninitialised;
+    uint6   clz = uninitialised;
     always_after {
-        if( zerohigh ) {
+        if( ~|bitstreamh ) {
             ( clz ) = clz_silice_32( bitstreaml );
             count = 16 + clz;
         } else {
@@ -565,10 +553,11 @@ algorithm equaliseexpaddsub(
     always_after {
         aligned = ( AvB ? sigA : sigB ) >> ( AvB ? ( expB - expA ) : ( expA - expB ) );
         if( AvB ) {
-            newsigA = aligned; resultexp = expB - 126; newsigB = sigB;
+            newsigA = aligned; newsigB = sigB;
         } else {
-            newsigB = aligned; resultexp = expA - 126; newsigA = sigA;
+            newsigB = aligned; newsigA = sigA;
         }
+        resultexp = ( AvB ? expB : expA ) - 126;
     }
 }
 algorithm dofloataddsub(
@@ -579,17 +568,16 @@ algorithm dofloataddsub(
     output  uint1   resultsign,
     output  uint48  resultfraction
 ) <autorun> {
-    uint48  sigAminussigB <:: sigA - sigB;
-    uint48  sigBminussigA <:: sigB - sigA;
+    uint48  sigAminussigB <:: sigA - sigB;          uint48  sigBminussigA <:: sigB - sigA;
     uint48  sigAplussigB <:: sigA + sigB;
     uint1   AvB <:: ( sigA > sigB );
 
     always_after {
         // PERFORM ADDITION HANDLING SIGNS
-        switch( { signA, signB } ) {
-            case 2b01: { resultsign = ( ~AvB ); resultfraction = resultsign ? sigBminussigA : sigAminussigB; }
-            case 2b10: { resultsign = ( AvB ); resultfraction = resultsign ? sigAminussigB : sigBminussigA; }
-            default: { resultsign = signA; resultfraction = sigAplussigB; }
+        if( ^{ signA, signB } ) {
+            resultsign = signA ? AvB : ~AvB; resultfraction = signA ^ resultsign ? ( sigBminussigA ) : ( sigAminussigB );
+        } else {
+            resultsign = signA; resultfraction = sigAplussigB;
         }
     }
 }
@@ -748,7 +736,7 @@ algorithm dofloatdivide(
                 quotient[bit,1] = bitresult;
                 bit = bit - 1;
             } else {
-                quotient = quotient >> normalshift;
+                quotient = quotient[ normalshift, 48 ];
             }
         }
     }
@@ -981,14 +969,13 @@ algorithm floatcompare(
     uint1   INF <:: classA[3,1] | classB[3,1];
     uint1   NAN <:: classA[2,1] | classB[2,1] | classA[1,1] | classB[1,1];
 
-    uint1   aequalb <:: ( a == b );
-    uint1   aorbleft1equal0 <:: ~|( ( a | b ) << 1 );
+    uint1   aequalb <:: ( a == b );                 uint1   aorbleft1equal0 <:: ~|( ( a | b ) << 1 );
     uint1   avb <:: ( a < b );
 
     // IDENTIFY NaN, RETURN 0 IF NAN, OTHERWISE RESULT OF COMPARISONS
     always_after {
         flags = { INF, {2{NAN}}, 4b0000 };
-        less = NAN ? 0 : ( ( fp32( a ).sign ^ fp32( b ).sign ) ? fp32( a ).sign & ~aorbleft1equal0 : ~aequalb & ( fp32( a ).sign ^ avb ) );
-        equal = NAN ? 0 : ( aequalb | aorbleft1equal0 );
+        less = ~NAN & ( ( fp32( a ).sign ^ fp32( b ).sign ) ? fp32( a ).sign & ~aorbleft1equal0 : ~aequalb & ( fp32( a ).sign ^ avb ) );
+        equal = ~NAN & ( aequalb | aorbleft1equal0 );
     }
 }
