@@ -8,15 +8,15 @@ algorithm apu(
     output  uint1   audio_active,
     output  uint4   audio_output
 ) <autorun,reginputs> {
-    uint5   point = uninitialised;
-    uint4   level = uninitialised;
+    uint5   point = uninitialised;                  uint4   level = uninitialised;
     uint1   updatepoint = uninitialised;
+
     waveform WAVEFORM( point <: point, staticGenerator <: staticGenerator, audio_output :> level );
     audiocounter COUNTER( active :> audio_active, updatepoint :> updatepoint );
 
     COUNTER.start := 0;
 
-    always {
+    always_before {
         if( updatepoint ) { audio_output = level; }
     }
     always_after {
@@ -69,9 +69,7 @@ algorithm audiocounter(
     output  uint1   updatepoint,
     output  uint1   active
 ) <autorun,reginputs> {
-    uint16  counter25mhz = uninitialised;
-    uint16  counter1khz = uninitialised;
-    uint16  duration = uninitialised;
+    uint16  counter25mhz = uninitialised;           uint16  counter1khz = uninitialised;                uint16  duration = uninitialised;
     uint1   updateduration <:: active & ( ~|counter1khz );
 
     active := ( |duration ); updatepoint := active & ( ~|counter25mhz );
