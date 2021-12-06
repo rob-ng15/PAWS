@@ -390,7 +390,6 @@ algorithm clz48(
         }
     }
 }
-
 // NORMALISE RESULT FOR ADD SUB DIVIDE
 algorithm normalise24(
     input   int10   exp,
@@ -647,9 +646,9 @@ algorithm prepmul(
     output  int10   productexp,
     output  uint24  normalfraction
 ) <autorun> {
-    uint24  sigA <:: { 1b1, fp32( a ).fraction };
-    uint24  sigB <:: { 1b1, fp32( b ).fraction };
+    uint24  sigA <:: { 1b1, fp32( a ).fraction };   uint24  sigB <:: { 1b1, fp32( b ).fraction };
     uint48  product <:: sigA * sigB;
+
     always_after {
         productsign = fp32( a ).sign ^ fp32( b ).sign;
         productexp = fp32( a ).exponent + fp32( b ).exponent - ( product[47,1] ? 253 : 254 );
