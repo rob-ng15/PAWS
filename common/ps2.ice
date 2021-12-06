@@ -16,8 +16,6 @@ algorithm ps2ascii(
     uint1   lwin = 0;                               uint1   rwin = 0;
     uint1   capslock = 0;                           uint1   numlock = 1;
     uint1   application = 0;
-
-    // DIRECTIONS KEYS
     uint1   left = 0;                               uint1   right = 0;
     uint1   up = 0;                                 uint1   down = 0;
     uint1   npleft = 0;                             uint1   npright = 0;
@@ -250,13 +248,8 @@ algorithm ps2(
     output  uint1   error,
     output  uint8   data
 ) < autorun> {
-    uint4 clk_filter = 4b1111;
-    uint1 ps2_clk_in = 1;
-    uint1 clk_edge = 0;
-
-    uint4 bit_count = 0;
-    uint9 shift_reg = 0;
-    uint1 parity = 0;
+    uint4 clk_filter = 4b1111;                      uint1 ps2_clk_in = 1;                               uint1 clk_edge = 0;
+    uint4 bit_count = 0;                            uint9 shift_reg = 0;                                uint1 parity = 0;
 
     valid := 0;                                     error := 0;                                         clk_edge := 0;
 
