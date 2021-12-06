@@ -51,7 +51,7 @@ void game( void ) {
 	while( get_buttons() == 1 ) {
 		evolve();
         show();
-        sleep( 10, 0 );
+        //sleep( 10, 0 );
 	}
 }
 
