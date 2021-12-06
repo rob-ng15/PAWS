@@ -156,7 +156,6 @@ algorithm tile_map_writer(
                         y_cursor_addr = yNEXT;
                     }
                     tm_offset_x = 0;
-                    tm_active = 0;
                 }
                 case 1: {                                                                                                   // SCROLL/WRAP UP/DOWN
                     while( x_cursor != 42 ) {                                                                                   // REPEAT UNTIL AT RIGHT OF THE SCREEN
@@ -183,7 +182,6 @@ algorithm tile_map_writer(
                         x_cursor = xNEXT;
                     }
                     tm_offset_y = 0;
-                    tm_active = 0;
                 }
                 case 2: {                                                                                                   // CLEAR
                     tiles.wdata1 = 0; tiles_copy.wdata1 = 0; colours.wdata1 = 15h1000; colours_copy.wdata1 = 15h1000;
@@ -194,9 +192,9 @@ algorithm tile_map_writer(
                     }
                     tm_offset_x = 0;
                     tm_offset_y = 0;
-                    tm_active = 0;
                 }
             }
+            tm_active = 0;
         } else {
             tmcsaddr = 0; y_cursor_addr = 0; x_cursor = 0;                                                                  // RESET SCROLL/WRAP
         }
