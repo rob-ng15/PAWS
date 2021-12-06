@@ -86,8 +86,8 @@ $$end
     bitmap_memmap BITMAP(
         video_clock <: clock_25mhz,
         video_reset <: video_reset,
-        pix_x      <: pix_x[1,9],
-        pix_y      <: pix_y[1,9],
+        pix_x      <: pix_x,
+        pix_y      <: pix_y,
         pix_active <: pix_active,
         pix_vblank <: vblank,
         memoryAddress <: memoryAddress,
@@ -200,6 +200,8 @@ $$end
         terminal_display <: TERMINAL.pixel_display
     );
 
+    uint1   LATCHmemoryWrite = uninitialised;
+
     BACKGROUND.memoryWrite := 0; BITMAP.memoryWrite := 0; CHARACTER_MAP.memoryWrite := 0; LOWER_SPRITE.memoryWrite := 0; UPPER_SPRITE.memoryWrite := 0; TERMINAL.memoryWrite := 0;
     LOWER_TILE.memoryWrite := 0; UPPER_TILE.memoryWrite := 0;
 
@@ -294,7 +296,7 @@ $$end
 }
 
 // ALL DISPLAY GENERATOR UNITS RUN AT 25MHz, 640 x 480 @ 60fps
-// WRITING TO THE DISPLAY GENERATOR UNITS THEREFORE LATCHES THEREFORE
+// WRITING TO THE DISPLAY GENERATOR UNITS THEREFORE
 // LATCHES THE OUTPUT FOR 2 x 50MHz clock cycles
 // AND THEN RESETS ANY CONTROLS
 //
@@ -381,8 +383,8 @@ algorithm bitmap_memmap(
     input   uint1   video_reset,
 
     // Pixels
-    input   uint9   pix_x,
-    input   uint9   pix_y,
+    input   uint10  pix_x,
+    input   uint10  pix_y,
     input   uint1   pix_active,
     input   uint1   pix_vblank,
     output! uint6   pixel,
