@@ -733,12 +733,6 @@ algorithm blitscale(
     output  int11   scaled
 ) <autorun> {
     always_after {
-//        switch( scale ) {
-//            case 0: { scaled = offset; }
-//            case 1: { scaled = { offset, 1b0 }; }
-//            case 2: { scaled = { offset, 2b00 }; }
-//            case 3: { scaled = { offset, 3b000 }; }
-//        }
         scaled = offset << scale;
     }
 }
@@ -747,13 +741,7 @@ algorithm blitmaxcount(
     output  uint4   max
 ) <autorun> {
     always_after {
-        switch( scale ) {
-            case 0: { max = 1; }
-            case 1: { max = 2; }
-            case 2: { max = 4; }
-            case 3: { max = 8; }
-        }
-//        max = 1 << scale;
+        max = 1 << scale;
     }
 }
 algorithm   blittilexy(
