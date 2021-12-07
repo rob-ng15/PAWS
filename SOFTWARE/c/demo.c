@@ -750,9 +750,8 @@ void backgrounddemo( void ) {
     copper_program( 2, COPPER_VARIABLE, COPPER_SET_VARIABLE, 0, 0, 0, 0 );
     copper_program( 3, COPPER_VARIABLE, COPPER_ADD_VARIABLE, 1, 0, 0, 0 );
     copper_program( 4, COPPER_SET_FROM_VARIABLE, 1, 0, 0, 0, 0 );
-    copper_program( 5, COPPER_JUMP, COPPER_JUMP_ON_VBLANK_EQUAL, 0, 0, 0, 4 );
-    copper_program( 6, COPPER_JUMP, COPPER_JUMP_IF_VARIABLE_LESS, 64, 0, 0, 3 );
-    copper_program( 7, COPPER_JUMP, COPPER_JUMP_ALWAYS, 0, 0, 0, 2 );
+    copper_program( 5, COPPER_JUMP, COPPER_JUMP_IF_VARIABLE_LESS, 64, 0, 0, 3 );
+    copper_program( 6, COPPER_JUMP, COPPER_JUMP_ALWAYS, 0, 0, 0, 2 );
     copper_startstop( 1 );
     sleep( 2000, 0 );
 }
