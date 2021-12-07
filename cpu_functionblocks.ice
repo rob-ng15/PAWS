@@ -105,10 +105,11 @@ algorithm signextend(
 // FIND THE ABSOLUTE VALUE FOR A SIGNED 32 BIT NUMBER
 algorithm absolute(
     input   int32   number,
-    output  uint32  value
+    input   int32   negative,
+    output  int32  value
 ) <autorun> {
     always_after {
-        value = number[31,1] ? -number : number;
+        value = number[31,1] ? negative : number;
     }
 }
 

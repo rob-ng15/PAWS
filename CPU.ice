@@ -33,8 +33,6 @@ algorithm PAWSCPU(
 
     // RISC-V REGISTERS
     uint1   frd <:: IFASTSLOW.FASTPATH ? IFASTSLOW.frd : EXECUTESLOW.frd;
-    int32   sourceReg1 = uninitialized;
-    int32   sourceReg2 = uninitialized;
     uint1   REGISTERSwrite <:: COMMIT & IFASTSLOW.writeRegister & ~frd & ( |RV32DECODER.rd );
     registersI REGISTERS <@clock_CPUdecoder> (
         SMT <:: SMT,
@@ -44,8 +42,10 @@ algorithm PAWSCPU(
         rd <: RV32DECODER.rd,
         write <: REGISTERSwrite
     );
+    // NEGATIVE OF REGISTERS FOR ABS AND ADD/SUB
+    int32   negRS1 <:: -REGISTERS.sourceReg1;                 int32   negRS2 <:: -REGISTERS.sourceReg2;
     // EXTRACT ABSOLUTE VALUE FOR MULTIPLICATION AND DIVISION
-    absolute ARS1 <@clock_CPUdecoder> ( number <: REGISTERS.sourceReg1 ); absolute ARS2 <@clock_CPUdecoder> ( number <: REGISTERS.sourceReg2 );
+    absolute ARS1 <@clock_CPUdecoder> ( number <: REGISTERS.sourceReg1, negative <: negRS1 ); absolute ARS2 <@clock_CPUdecoder> ( number <: REGISTERS.sourceReg2, negative <: negRS2 );
 
     // RISC-V FLOATING POINT REGISTERS
     uint1   REGISTERSFwrite <:: COMMIT & IFASTSLOW.writeRegister & frd;
@@ -120,6 +120,7 @@ algorithm PAWSCPU(
         sourceReg2 <: REGISTERS.sourceReg2,
         abssourceReg1 <: ARS1.value,
         abssourceReg2 <: ARS2.value,
+        negSourceReg2 <: negRS2,
         sourceReg2F <: REGISTERSF.sourceReg2,
         immediateValue <: RV32DECODER.immediateValue,
         memoryinput <: memoryinput,
@@ -194,17 +195,17 @@ algorithm cpuexecuteSLOWPATH(
     input   uint7   function7,
     input   uint5   rs1,
     input   uint5   rs2,
-    input   uint32  sourceReg1,
-    input   uint32  sourceReg2,
-    input   uint32  abssourceReg1,
-    input   uint32  abssourceReg2,
+    input   int32  sourceReg1,
+    input   int32  sourceReg2,
+    input   int32  abssourceReg1,
+    input   int32  abssourceReg2,
     input   uint32  sourceReg1F,
     input   uint32  sourceReg2F,
     input   uint32  sourceReg3F,
-    input   uint32  memoryinput,
+    input   int32  memoryinput,
     output  uint1   frd,
-    output  uint32  memoryoutput,
-    output  uint32  result,
+    output  int32  memoryoutput,
+    output  int32  result,
     input   uint1   incCSRinstret
 ) <autorun,reginputs> {
     // M EXTENSION - DIVISION
@@ -293,18 +294,19 @@ algorithm cpuexecuteFASTPATH(
     input   uint7   function7,
     input   uint5   rs1,
     input   uint5   rs2,
-    input   uint32  sourceReg1,
-    input   uint32  sourceReg2,
-    input   uint32  abssourceReg1,
-    input   uint32  abssourceReg2,
+    input   int32   sourceReg1,
+    input   int32   sourceReg2,
+    input   int32   abssourceReg1,
+    input   int32   abssourceReg2,
+    input   int32   negSourceReg2,
     input   uint32  sourceReg2F,
-    input   uint32  immediateValue,
-    input   uint32  memoryinput,
+    input   int32   immediateValue,
+    input   int32   memoryinput,
     input   uint32  AUIPCLUI,
     input   uint32  nextPC,
     output  uint1   takeBranch,
-    output  uint32  memoryoutput,
-    output  uint32  result
+    output  int32  memoryoutput,
+    output  int32  result
 ) <autorun> {
     // BRANCH COMPARISON UNIT
     branchcomparison BRANCHUNIT( function3 <: function3, sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2 );
@@ -313,7 +315,7 @@ algorithm cpuexecuteFASTPATH(
     alu ALU(
         opCode <: opCode, function3 <: function3, function7 <: function7,
         rs1 <: rs1, rs2 <: rs2,
-        sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2,
+        sourceReg1 <: sourceReg1, sourceReg2 <: sourceReg2, negSourceReg2 <: negSourceReg2,
         immediateValue <: immediateValue
     );
 
