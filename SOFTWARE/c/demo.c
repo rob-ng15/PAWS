@@ -577,7 +577,7 @@ char *backgroundnames[] = {
     "BKG_SOLID",
     "BKG_5050_V",
     "BKG_5050_H",
-    "BKG_CHKBRD_5",
+    "BKG_QUARTERS",
     "BKG_RAINBOW",
     "BKG_SNOW",
     "BKG_STATIC",

@@ -116,15 +116,14 @@ algorithm terminal_writer(
                         terminal_copy.addr1 = terminal_scroll; terminal_copy.wdata1 = scrolling ? terminal_copy.rdata0 : 0;
                         terminal_scroll = terminal_scroll_next;
                     }
-                    terminal_active = 0;
                 }
                 case 1: {                                                                                                                                       // RESET TERMINAL
                     terminal.wdata1 = 0; terminal_copy.wdata1 = 0;
                     while( working ) { terminal.addr1 = terminal_scroll; terminal_copy.addr1 = terminal_scroll; terminal_scroll = terminal_scroll_next; }
                     terminal_x = 0;
-                    terminal_active = 0;
                 }
             }
+            terminal_active = 0;
         } else {
             terminal_scroll = 0;
         }

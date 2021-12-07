@@ -83,6 +83,7 @@ $$else
 $$end
 ) <@clock_system> {
     uint1   clock_system = uninitialized;
+    uint1   clock_cpu = uninitialized;
     uint1   clock_decode = uninitialized;
 $$if VERILATOR then
     $$clock_25mhz = 'video_clock'
@@ -91,20 +92,27 @@ $$if VERILATOR then
       video_clock   :> video_clock,
       sdram_clock   :> sdram_clock,
       clock_decode   :> clock_decode,
-      compute_clock :> clock_system
+      compute_clock :> clock_system,
+      compute_clock :> clock_cpu
     );
 $$else
     $$clock_25mhz = 'clock'
     // CLOCK/RESET GENERATION
     // CPU + MEMORY
     uint1   sdram_clock = uninitialized;
+    uint1   pll_lock_SYSTEM = uninitialized;
+    ulx3s_clk_risc_ice_v_SYSTEM clk_gen_SYSTEM (
+        clkin    <: $clock_25mhz$,
+        clkSYSTEM  :> clock_system,
+        clkSDRAM :> sdram_clock,
+        clkSDRAMcontrol :> sdram_clk,
+        locked   :> pll_lock_SYSTEM
+    );
     uint1   pll_lock_CPU = uninitialized;
     ulx3s_clk_risc_ice_v_CPU clk_gen_CPU (
         clkin    <: $clock_25mhz$,
-        clkSYSTEM  :> clock_system,
+        clkCPU  :> clock_cpu,
         clkDECODE  :> clock_decode,
-        clkSDRAM :> sdram_clock,
-        clkSDRAMcontrol :> sdram_clk,
         locked   :> pll_lock_CPU
     );
 $$end
@@ -148,9 +156,7 @@ $$end
     bramcontroller RAM <@clock_system,!reset> (
         byteaccess <: byteaccess,
         address <: CPU.address[0,15],
-        writedata <: CPU.writedata,
-        writeflag <: ramwriteflag,
-        readflag <: ramreadflag
+        writedata <: CPU.writedata
     );
 
     // MEMORY MAPPED I/O + SMT CONTROLS
@@ -184,17 +190,13 @@ $$end
     timers_memmap TIMERS_Map <@clock_system,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,5],
-        memoryWrite <: TmemoryWrite,
         writeData <: CPU.writedata,
-        memoryRead <: TmemoryRead
     );
 
     audio_memmap AUDIO_Map <@clock_system,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,3],
-        memoryWrite <: AmemoryWrite,
         writeData <: CPU.writedata,
-        memoryRead <: AmemoryRead,
         audio_l :> audio_l,
         audio_r :> audio_r,
         static4bit <: TIMERS_Map.static16bit[0,4]
@@ -219,13 +221,16 @@ $$end
         static6bit <: TIMERS_Map.static16bit[0,6]
     );
 
-    PAWSCPU CPU <@clock_system,!reset> (
+    PAWSCPU CPU <@clock_cpu,!reset> (
         clock_CPUdecoder <: clock_decode,
         SMTRUNNING <: IO_Map.SMTRUNNING,
         SMTSTARTPC <: IO_Map.SMTSTARTPC[0,27],
         memorybusy <: memorybusy,
         readdata <: readdata
     );
+
+    // SDRAM -> CPU BUSY STATE
+    uint1   memorybusy <:: DRAM.busy | ( ( CPU.readmemory | CPU.writememory ) & ( BRAM | SDRAM ) );
 
     // IDENTIFY ADDRESS BLOCK
     uint1   SDRAM <: CPU.address[26,1];
@@ -236,23 +241,14 @@ $$end
     uint1   AUDIO <: IOmem & ( CPU.address[12,2] == 2h2 );
     uint1   IO <: IOmem & ( &CPU.address[12,2] );
 
-    // SDRAM -> CPU BUSY STATE
-    uint1   memorybusy <:: DRAM.busy | ( ( CPU.readmemory | CPU.writememory ) & ( BRAM | SDRAM ) );
-
     // WRITE TO SDRAM / BRAM / IO REGISTERS
     uint1   sdramwriteflag <:: SDRAM & CPU.writememory;
-    uint1   ramwriteflag <:: BRAM & CPU.writememory;
-    uint1   TmemoryWrite <:: TIMERS & CPU.writememory;
     uint1   VmemoryWrite <:: VIDEO & CPU.writememory;
-    uint1   AmemoryWrite <:: AUDIO & CPU.writememory;
     uint1   IOmemoryWrite <:: IO & CPU.writememory;
 
     // READ FROM SDRAM / BRAM / IO REGISTERS
     uint1   sdramreadflag <: SDRAM & CPU.readmemory;
-    uint1   ramreadflag <: BRAM & CPU.readmemory;
-    uint1   TmemoryRead <: TIMERS & CPU.readmemory;
     uint1   VmemoryRead <: VIDEO & CPU.readmemory;
-    uint1   AmemoryRead <: AUDIO & CPU.readmemory;
     uint1   IOmemoryRead <: IO & CPU.readmemory;
     uint16  readdata <: SDRAM ? DRAM.readdata :
                 BRAM ? RAM.readdata :
@@ -260,6 +256,10 @@ $$end
                 VIDEO ? VIDEO_Map.readData :
                 AUDIO ? AUDIO_Map.readData :
                 IO? IO_Map.readData : 0;
+
+    RAM.writeflag := BRAM & CPU.writememory;                                                            RAM.readflag := BRAM & CPU.readmemory;
+    AUDIO_Map.memoryWrite := AUDIO & CPU.writememory;                                                   AUDIO_Map.memoryRead := AUDIO & CPU.readmemory;
+    TIMERS_Map.memoryWrite := TIMERS & CPU.writememory;                                                 TIMERS_Map.memoryRead := TIMERS & CPU.readmemory;
 }
 
 // RAM - BRAM controller
@@ -273,7 +273,7 @@ algorithm bramcontroller(
 
     input   uint1   readflag,
     output  uint16  readdata
-) <autorun> {
+) <autorun,reginputs> {
 $$if not SIMULATION then
     // RISC-V FAST BRAM and BIOS
     bram uint16 ram[16384] = {

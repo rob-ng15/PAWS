@@ -86,14 +86,13 @@ algorithm gpu_queue(
 
     always {
         if( |gpu_write ) {
-            queue_dithermode = gpu_dithermode; queue_colour = gpu_colour; queue_colour_alt = gpu_colour_alt;
-            queue_x = gpu_x; queue_y = gpu_y;
-            queue_param0 = gpu_param0; queue_param1 = gpu_param1;
-            queue_param2 = gpu_param2; queue_param3 = gpu_param3;
-            queue_param4 = gpu_param4; queue_param5 = gpu_param5;
-            queue_write = gpu_write;
-            queue_cropL = crop_left; queue_cropR = crop_right;
-            queue_cropT = crop_top; queue_cropB = crop_bottom;
+            queue_dithermode = gpu_dithermode; queue_colour = gpu_colour; queue_colour_alt = gpu_colour_alt; queue_write = gpu_write;
+            ( queue_x, queue_y ) = copycoordinates( gpu_x, gpu_y );
+            ( queue_param0, queue_param1 ) = copycoordinates( gpu_param0, gpu_param1 );
+            ( queue_param2, queue_param3 ) = copycoordinates( gpu_param2, gpu_param3 );
+            ( queue_param4, queue_param5 ) = copycoordinates( gpu_param4, gpu_param5 );
+            ( queue_cropL, queue_cropR ) = copycoordinates( crop_left, crop_right );
+            ( queue_cropT, queue_cropB ) = copycoordinates( crop_top, crop_bottom );
         }
         if( vector_drawer_gpu_write ) {
             GPU.gpu_dithermode = 0; GPU.gpu_colour = vector_block_colour; GPU.gpu_colour_alt = 0;
@@ -107,33 +106,27 @@ algorithm gpu_queue(
 
     while(1) {
         if( |gpu_write ) {
-            if( &gpu_write ) {
-                // COMMAND QUEUE FOR QUADRILATERALS, SPLIT INTO TWO TRIANGLES THEN DISPATCH
-                queue_busy = 1;
-                while( gpu_active ) {}
-                GPU.gpu_dithermode = queue_dithermode; GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt;
-                GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
-                GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
-                GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
-                GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR;
-                GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+            // WAIT FOR GPU TO FINISH, SET UP COMMAND / 1ST TRIANGLE FOR QUADRILATERALS
+            queue_busy = 1; while( gpu_active ) {}
+
+            GPU.gpu_dithermode = queue_dithermode; GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt;
+            GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
+            GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
+            GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
+            GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+
+            if( &queue_write ) {
+                // QUADRILATERAL, SEND FIRST TRIANGLE TO GPU
                 GPU.gpu_write = 6; while( gpu_active ) {}
-                // SECOND TRIANGLE
+                // SECOND TRIANGLE TO GPU
                 GPU.gpu_param0 = queue_param4; GPU.gpu_param1 = queue_param5;
                 GPU.gpu_write = 6;
-                queue_busy = 0;
             } else {
-                // COMMAND QUEUE, LATCH AND WAIT FOR GPU THEN DISPATCH
-                queue_busy = 1;
-                while( gpu_active ) {}
-                GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt; GPU.gpu_dithermode = queue_dithermode;
-                GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
-                GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
-                GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
-                GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
+                // EVERYTHING ELSE, SEND TO GPU
                 GPU.gpu_write = queue_write;
-                queue_busy = 0;
             }
+
+            queue_busy = 0;
         }
     }
 }
@@ -196,13 +189,9 @@ algorithm gpu(
     blit GPUblit(
         blit1tilemap <:> blit1tilemap,
         characterGenerator8x8 <:> characterGenerator8x8,
-        x <: gpu_x, y <: gpu_y,
-        tile <: gpu_param0[0,9], scale <: gpu_param1[0,2], action <: gpu_param2[0,3]
-    );
-    colourblit GPUcolourblit(
         colourblittilemap <:> colourblittilemap,
         x <: gpu_x, y <: gpu_y,
-        tile <: gpu_param0[0,6], scale <: gpu_param1[0,2],  action <: gpu_param2[0,3]
+        tile <: gpu_param0[0,9], scale <: gpu_param1[0,2], action <: gpu_param2[0,3]
     );
     pixelblock GPUpixelblock(
         x <: gpu_x, y <: gpu_y, width <: gpu_param0,
@@ -212,14 +201,14 @@ algorithm gpu(
     );
 
     // GPU UNIT BUSY FLAGS
-    uint7   gpu_busy_flags <:: { GPUpixelblock.busy, GPUcolourblit.busy, GPUblit.busy, GPUtriangle.busy, GPUcircle.busy, GPUrectangle.busy, GPUline.busy };
+    uint6   gpu_busy_flags <:: { GPUpixelblock.busy, |GPUblit.busy, GPUtriangle.busy, GPUcircle.busy, GPUrectangle.busy, GPUline.busy };
     uint1   gpu_busy <: ( |gpu_busy_flags );
 
     // CONTROLS FOR BITMAP PIXEL WRITER AND GPU SUBUNITS
     bitmap_write := GPUline.bitmap_write | GPUrectangle.bitmap_write | GPUcircle.bitmap_write |
-                                    GPUtriangle.bitmap_write | GPUblit.bitmap_write | GPUcolourblit.bitmap_write | GPUpixelblock.bitmap_write;
+                                    GPUtriangle.bitmap_write | GPUblit.bitmap_write | GPUpixelblock.bitmap_write;
 
-    GPUrectangle.start := 0; GPUline.start := 0; GPUcircle.start := 0; GPUtriangle.start := 0; GPUblit.start := 0; GPUcolourblit.start := 0; GPUpixelblock.start := 0;
+    GPUrectangle.start := 0; GPUline.start := 0; GPUcircle.start := 0; GPUtriangle.start := 0; GPUblit.start := 0; GPUpixelblock.start := 0;
     gpu_active := ( |gpu_write[1,3] ) | gpu_busy;
 
     always_before {
@@ -241,7 +230,7 @@ algorithm gpu(
                     case 6: { gpu_active_dithermode = gpu_dithermode; GPUtriangle.start = 1; }                              // DRAW FILLED TRIANGLE WITH VERTICES (X,Y) (PARAM0,PARAM1) (PARAM2,PARAM3)
                     case 7: { GPUblit.tilecharacter = 1; GPUblit.start = 1; }                                               // BLIT 16 x 16 TILE PARAM0 TO (X,Y)
                     case 8: { GPUblit.tilecharacter = 0; GPUblit.start = 1; }                                               // BLIT 8 x 8 CHARACTER PARAM0 TO (X,Y) as 8 x 8
-                    case 9: { GPUcolourblit.start = 1; }                                                                    // BLIT 16 x 16 COLOUR TILE PARAM0 TO (X,Y) as 16 x 16
+                    case 9: { GPUblit.tilecharacter = 1; GPUblit.start = 2; }                                               // BLIT 16 x 16 COLOUR TILE PARAM0 TO (X,Y) as 16 x 16
                     case 10: { GPUpixelblock.start = 1; }                                                                   // START THE PIXELBLOCK WRITER AT (x,y) WITH WIDTH PARAM0, IGNORE COLOUR PARAM1
                     // 11
                     // 12
@@ -261,9 +250,11 @@ algorithm gpu(
                 case 1: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUrectangle.bitmap_x_write, GPUrectangle.bitmap_y_write ); }
                 case 2: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUcircle.bitmap_x_write, GPUcircle.bitmap_y_write ); }
                 case 3: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUtriangle.bitmap_x_write, GPUtriangle.bitmap_y_write ); }
-                case 4: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUblit.bitmap_x_write, GPUblit.bitmap_y_write ); }
-                case 5: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUcolourblit.bitmap_x_write, GPUcolourblit.bitmap_y_write ); bitmap_colour_write = GPUcolourblit.bitmap_colour_write; }
-                case 6: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUpixelblock.bitmap_x_write, GPUpixelblock.bitmap_y_write ); bitmap_colour_write = GPUpixelblock.bitmap_colour_write; }
+                case 4: {
+                    ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUblit.bitmap_x_write, GPUblit.bitmap_y_write );
+                    if( GPUblit.busy[1,1] ) { bitmap_colour_write = GPUblit.bitmap_colour_write; }
+                }
+                case 5: { ( bitmap_x_write, bitmap_y_write ) = copycoordinates(  GPUpixelblock.bitmap_x_write, GPUpixelblock.bitmap_y_write ); bitmap_colour_write = GPUpixelblock.bitmap_colour_write; }
             }
         }
     }
@@ -334,9 +325,7 @@ algorithm drawrectangle(
     output  int11   bitmap_y_write,
     output  uint1   bitmap_write
 ) <autorun> {
-    uint9   x = uninitialized;                          uint9 xNEXT <:: x + 1;
-    uint8   y = uninitialized;                          uint8 yNEXT <:: y + 1;
-
+    uint9   x = uninitialized;                          uint8   y = uninitialized;
     bitmap_x_write := x; bitmap_y_write := y; bitmap_write := 0;
 
     while(1) {
@@ -345,8 +334,8 @@ algorithm drawrectangle(
             y = min_y;
             while( y != max_y ) {
                 x = min_x;
-                while( x != max_x ) { bitmap_write = 1; x = xNEXT; }
-                y = yNEXT;
+                while( x != max_x ) { bitmap_write = 1; x = x + 1; }
+                y = y + 1;
             }
             busy = 0;
         }
@@ -440,11 +429,11 @@ algorithm drawline(
     int11   numerator2 <:: numerator;                   int11   newnumerator <:: numerator - ( n2dx ? dy : 0 ) + ( n2dy ? dx : 0 );
     uint1   n2dx <:: numerator2 > (-dx);                uint1   n2dy <:: numerator2 < dy;
     uint1   dxdy <:: dx > dy;
-    int11   count = uninitialized;                      int11   countNEXT <:: count + 1;
+    int11   count = uninitialized;
     int11   offset_x = uninitialised;                   int11   offset_xNEXT <:: offset_y + dxdy;
     int11   offset_y = uninitialised;                   int11   offset_yNEXT <:: offset_x + ~dxdy;
     int11   offset_start <:: -( width >> 1 );
-    uint8   pixel_count = uninitialised;                uint8   pixel_countNEXT <:: pixel_count + 1;
+    uint8   pixel_count = uninitialised;
 
     bitmap_x_write := x + offset_x; bitmap_y_write := y + offset_y; bitmap_write := 0;
 
@@ -454,9 +443,9 @@ algorithm drawline(
             while( count != max_count ) {
                 pixel_count = 0; offset_x = dxdy ? 0 : offset_start; offset_y = dxdy ? offset_start : 0;
                 while( pixel_count != width ) {
-                    bitmap_write = 1; offset_y = offset_xNEXT; offset_x = offset_yNEXT; pixel_count = pixel_countNEXT;
+                    bitmap_write = 1; offset_y = offset_xNEXT; offset_x = offset_yNEXT; pixel_count = pixel_count + 1;
                 }
-                numerator = newnumerator; x = xNEXT; y = yNEXT; count = countNEXT;
+                numerator = newnumerator; x = xNEXT; y = yNEXT; count = count + 1;
             }
             busy = 0;
         }
@@ -506,10 +495,9 @@ algorithm drawcircle(
 ) <autorun> {
     int11   numerator = uninitialised;                  int11   new_numerator <:: numerator[10,1] ? numerator + { active_x, 2b00 } + 6 : numerator + { (active_x - active_y), 2b00 } + 10;
     uint1   positivenumerator <:: ~numerator[10,1] & ( |numerator );
-    int11   active_x = uninitialized;                   int11   active_xNEXT <:: active_x + 1;
-    int11   active_y = uninitialized;                   int11   active_yNEXT <:: active_y - positivenumerator;
+    int11   active_x = uninitialized;                   int11   active_y = uninitialized;
     int11   count = uninitialised;                      int11   countNEXT <:: filledcircle ? count - 1 : min_count;
-    int11   min_count = uninitialised;                  int11   min_countNEXT <:: min_count + 1;
+    int11   min_count = uninitialised;
     uint1   drawingcircle <:: ( active_y >= active_x ); uint1   finishsegment <:: ( countNEXT == min_count );
 
     // PLUS OR MINUS OFFSETS
@@ -540,7 +528,7 @@ algorithm drawcircle(
                     bitmap_y_write = ycpax;                             if( draw_sectors[7,1] ) { bitmap_write = 1; }
                 }
                 if( finishsegment ) {
-                    active_x = active_xNEXT; active_y = active_yNEXT; count = active_y; min_count = min_countNEXT; numerator = new_numerator;
+                    active_x = active_x + 1; active_y = active_y - positivenumerator; count = active_y; min_count = min_count + 1; numerator = new_numerator;
                 } else {
                     count = countNEXT;
                 }
@@ -615,10 +603,10 @@ algorithm preptriangle(
     while(1) {
         if( start ) {
             busy = 1;
-            // Setup drawing a filled triangle x,y param0, param1, param2, param3
-            x1 = x; y1 = y;
-            x2 = param0; y2 = param1;
-            x3 = param2; y3 = param3;
+            // Setup drawing a filled triangle x,y param0, param1, param2, param3 ( Copy to x1, y1, x2, y2, x3, y3 )
+            ( x1, y1 ) = copycoordinates ( x, y );
+            ( x2, y2 ) = copycoordinates ( param0, param1 );
+            ( x3, y3 ) = copycoordinates ( param2, param3 );
             ++:
             // Put points in order so that ( x1, y1 ) is at top, then ( x2, y2 ) and ( x3, y3 ) are clockwise from there
             if( y3 < y2 ) { tx = x2; ty = y2; x2 = x3; y2 = y3; x3 = tx; y3 = ty; ++: }
@@ -737,33 +725,14 @@ algorithm triangle(
 }
 
 // BLIT - ( tilecharacter == 0 ) OUTPUT PIXELS TO BLIT AN 8 x 8 CHARACTER ( PARAM1 == 0 as 8 x 8, == 1 as 16 x 16, == 2 as 32 x 32, == 3 as 64 x 64 )
+// COLOURBLIT - OUTPUT PIXELS TO BLIT A 16 x 16 TILE ( PARAM1 == 0 as 16 x 16, == 1 as 32 x 32, == 2 as 64 x 64, == 3 as 128 x 128 )
 algorithm blitscale(
     input   uint7   offset,
     input   uint2   scale,
     output  int11   scaled
 ) <autorun> {
     always_after {
-        switch( scale ) {
-            case 0: { scaled = offset; }
-            case 1: { scaled = { offset, 1b0 }; }
-            case 2: { scaled = { offset, 2b00 }; }
-            case 3: { scaled = { offset, 3b000 }; }
-        }
-//        scaled = offset << scale;
-    }
-}
-algorithm blitmaxcount(
-    input   uint2   scale,
-    output  uint4   max
-) <autorun> {
-    always_after {
-        switch( scale ) {
-            case 0: { max = 1; }
-            case 1: { max = 2; }
-            case 2: { max = 4; }
-            case 3: { max = 8; }
-        }
-//        max = 1 << scale;
+        scaled = offset << scale;
     }
 }
 algorithm   blittilexy(
@@ -787,6 +756,22 @@ algorithm   blittilexy(
         yinchartile = action[2,1] ? action00 ? py[0,3] : action01 ? px[0,3] : action10 ? revy3 : revx3 : action[1,1] ? revy3 :  py[0,3];
     }
 }
+algorithm cololurblittilexy(
+    input   uint7   px,
+    input   uint7   py,
+    input   uint3   action,
+    output  uint4   xintile,
+    output  uint4   yintile
+) <autorun> {
+    uint4   revx <:: 4b1111 - px[0,4];              uint4   revy <:: 4b1111 - py[0,4];
+    uint1   action00 <:: ( ~|action[0,2] );         uint1   action01 <:: ( action[0,2] == 2b01 );           uint1   action10 <:: ( action[0,2] == 2b10 );
+
+    // find y and x positions within the tile bitmap handling rotation or reflection
+    always_after {
+        xintile = action[2,1] ? action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
+        yintile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy : revx : action[1,1] ? revy :  py[0,4];
+    }
+}
 algorithm blittilebitmapwriter(
     // For setting blit1 tile bitmaps
     input   uint6   blit1_writer_tile,
@@ -807,88 +792,6 @@ algorithm blittilebitmapwriter(
         characterGenerator8x8.addr1 = { character_writer_character, character_writer_line }; characterGenerator8x8.wdata1 = character_writer_bitmap;
     }
 }
-
-algorithm blit(
-    input   uint1   start,
-    output  uint1   busy(0),
-    simple_dualport_bram_port0 blit1tilemap,
-    simple_dualport_bram_port0 characterGenerator8x8,
-
-    input   int11   x,
-    input   int11   y,
-    input   uint9   tile,
-    input   uint2   scale,
-    input   uint3   action,
-
-    output  int11   bitmap_x_write,
-    output  int11   bitmap_y_write,
-    output  uint1   bitmap_write,
-
-    input   uint1   tilecharacter
-) <autorun,reginputs> {
-    // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
-    int11   x1 = uninitialized;                         int11   y1 = uninitialized;
-    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;                          blitscale PXS( offset <: px, scale <: scale );
-    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
-    uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
-    uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
-
-    // MAX PIXELS IN TILE
-    uint5   max_pixels <:: tilecharacter ? 16 : 8;
-
-    // MAXCOUNT FOR THE SCALE
-    blitmaxcount COUNT( scale <: scale );
-
-    // FIND X AND Y WITHIN THE TILE/CHARACTER BITMAP
-    blittilexy BTXY( px <: px, py <: py, action <: action );
-
-    blit1tilemap.addr0 := { tile, BTXY.yinblittile }; characterGenerator8x8.addr0 := { tile, BTXY.yinchartile };
-    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_write := 0;
-
-    while(1) {
-        if( start ) {
-            busy = 1;
-            py = 0; ( x1, y1 ) = copycoordinates( x, y );
-            while( py != max_pixels ) {
-                px = 0;
-                while( px != max_pixels ) {
-                    y2 = 0;
-                    while( y2 != COUNT.max ) {
-                        x2 = 0;
-                        while( x2 != COUNT.max ) {
-                            bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1];
-                            x2 = x2NEXT;
-                        }
-                        y2 = y2NEXT;
-                    }
-                    px = pxNEXT;
-                }
-                py = pyNEXT;
-            }
-            busy = 0;
-        }
-    }
-}
-
-
-
-// COLOURBLIT - OUTPUT PIXELS TO BLIT A 16 x 16 TILE ( PARAM1 == 0 as 16 x 16, == 1 as 32 x 32, == 2 as 64 x 64, == 3 as 128 x 128 )
-algorithm cololurblittilexy(
-    input   uint7   px,
-    input   uint7   py,
-    input   uint3   action,
-    output  uint4   xintile,
-    output  uint4   yintile
-) <autorun> {
-    uint4   revx <:: 4b1111 - px[0,4];              uint4   revy <:: 4b1111 - py[0,4];
-    uint1   action00 <:: ( ~|action[0,2] );         uint1   action01 <:: ( action[0,2] == 2b01 );           uint1   action10 <:: ( action[0,2] == 2b10 );
-
-    // find y and x positions within the tile bitmap handling rotation or reflection
-    always_after {
-        xintile = action[2,1] ? action00 ? px[0,4] : action01 ? revy : action10 ? revx : py[0,4] : action[0,1] ? revx :  px[0,4];
-        yintile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy : revx : action[1,1] ? revy :  py[0,4];
-    }
-}
 algorithm colourblittilebitmapwriter(
     // For setting  colourblit tile bitmaps
     input   uint6   colourblit_writer_tile,
@@ -904,60 +807,73 @@ algorithm colourblittilebitmapwriter(
         colourblittilemap.wdata1 = colourblit_writer_colour;
     }
 }
-algorithm colourblit(
-    input   uint1   start,
-    output  uint1   busy(0),
+algorithm blit(
+    input   uint2   start,
+    output  uint2   busy(0),
+    simple_dualport_bram_port0 blit1tilemap,
+    simple_dualport_bram_port0 characterGenerator8x8,
     simple_dualport_bram_port0 colourblittilemap,
 
     input   int11   x,
     input   int11   y,
-    input   uint6   tile,
+    input   uint9   tile,
     input   uint2   scale,
     input   uint3   action,
 
     output  int11   bitmap_x_write,
     output  int11   bitmap_y_write,
+    output  uint1   bitmap_write,
     output  uint7   bitmap_colour_write,
-    output  uint1   bitmap_write
+
+    input   uint1   tilecharacter
 ) <autorun,reginputs> {
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
-    int11   x1 = uninitialized;
-    int11   y1 = uninitialized;
-    uint7   px = uninitialized;                         uint7   pxNEXT <:: px + 1;                          blitscale PXS( offset <: px, scale <: scale );
-    uint7   py = uninitialized;                         uint7   pyNEXT <:: py + 1;                          blitscale PYS( offset <: py, scale <: scale );
-    uint4   x2 = uninitialised;                         uint4   x2NEXT <:: x2 + 1;
-    uint4   y2 = uninitialised;                         uint4   y2NEXT <:: y2 + 1;
+    int11   x1 = uninitialized;                         int11   y1 = uninitialized;
+    uint7   px = uninitialized;                         blitscale PXS( offset <: px, scale <: scale );
+    uint7   py = uninitialized;                         blitscale PYS( offset <: py, scale <: scale );
+    uint4   x2 = uninitialised;
+    uint4   y2 = uninitialised;
 
-    // MAXCOUNT FOR THE SCALE
-    blitmaxcount COUNT( scale <: scale );
+    // MAX PIXELS IN TILE AND NUMBER OF TIMES TO USE EACH PIXEL
+    uint5   max_pixels <:: tilecharacter ? 16 : 8;      uint4   max_count <:: ( 1 << scale );
 
-    // FIND X AND Y WITHIN THE TILE BITMAP
+    // FIND X AND Y WITHIN THE TILE/CHARACTER BITMAP
+    blittilexy BTXY( px <: px, py <: py, action <: action );
     cololurblittilexy CBTXY( px <: px, py <: py, action <: action );
 
-    colourblittilemap.addr0 := { tile, CBTXY.yintile, CBTXY.xintile };
-    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0;  bitmap_write := 0;
+    blit1tilemap.addr0 := { tile, BTXY.yinblittile }; characterGenerator8x8.addr0 := { tile, BTXY.yinchartile }; colourblittilemap.addr0 := { tile, CBTXY.yintile, CBTXY.xintile };
+    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0; bitmap_write := 0;
 
     while(1) {
-        if( start ) {
-            busy = 1;
-            px = 0; py = 0; x2 = 0; y2 = 0; ( x1, y1 ) = copycoordinates( x, y );
-            while( ~py[4,1] ) {
+        if( |start ) {
+            busy = start;
+            py = 0; ( x1, y1 ) = copycoordinates( x, y );
+            while( py != max_pixels ) {
                 px = 0;
-                while( ~px[4,1] ) {
-                    x2 = 0;
-                    while( x2 != COUNT.max ) {
-                        y2 = 0;
-                        while( y2 != COUNT.max ) { bitmap_write = ~colour7(colourblittilemap.rdata0).alpha; y2 = y2NEXT; }
-                        x2 = x2NEXT;
+                while( px != max_pixels ) {
+                    y2 = 0;
+                    while( y2 != max_count ) {
+                        x2 = 0;
+                        while( x2 != max_count ) {
+                            onehot( busy ) {
+                                case 0: { bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1]; }
+                                case 1: { bitmap_write = ~colour7( colourblittilemap.rdata0 ).alpha; }
+                            }
+                            x2 = x2 + 1;
+                        }
+                        y2 = y2 + 1;
                     }
-                    px = pxNEXT;
+                    px = px + 1;
                 }
-                py = pyNEXT;
+                py = py + 1;
             }
             busy = 0;
         }
     }
 }
+
+
+
 
 // PIXELBLOCK - OUTPUT PIXELS TO RECTANGLE START AT X, Y WITH WIDTH PARAM0, PIXELS PROVIDED SEQUENTIALLY BY CPU, MOVE ALONG RECTANGLE UNTIL STOP RECEIVED
 // CAN HANDLE 7bit ( ARRGGBB ) colours, with one defined as transparent or 24bit RGB colours, scaling to the PAWS colour map
