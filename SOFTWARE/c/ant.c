@@ -33,14 +33,16 @@ void show( void ) {
 void walk( void) {
     if( !universe[y][x] ) { universe[y][x] = 1; d -= 1; } else { universe[y][x] = 0; d += 1; }
     d = ( d + 4 ) % 4;
+
+    // MOVE ANT, WRAPS AROUND IF MOVES OFF THE SCREEN
     switch(d) {
-        case 0: y += 1;
+        case 0: y = ( y == HEIGHT - 1 ) ? 0 : y + 1;
             break;
-        case 1: x += 1;
+        case 1: x = ( x == WIDTH - 1 ) ? 0 : x + 1;
             break;
-        case 2: y -= 1;
+        case 2: y = ( y == 0 ) ? ( HEIGHT - 1 ) : y - 1;
             break;
-        case 3: x -= 1;
+        case 3: x = ( x == 0 ) ? ( WIDTH - 1 ) : x - 1;
             break;
     }
 }
@@ -54,7 +56,7 @@ void game( void ) {
 	while( get_buttons() == 1 ) {
 		walk();
         show();
-        if( ( x<0 ) || ( x==WIDTH ) || ( y<0 ) || ( y==HEIGHT ) ) { x = WIDTH/2; y = HEIGHT/2; }
+        gpu_rectangle( WHITE, x * SIZE, y * SIZE, x * SIZE + (SIZE-1), y * SIZE + (SIZE-1) );
 	}
 }
 
