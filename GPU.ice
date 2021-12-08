@@ -582,6 +582,26 @@ algorithm swaponcondition(
         }
     }
 }
+algorithm min3(
+    input   int11   n1,
+    input   int11   n2,
+    input   int11   n3,
+    output  int11   min
+) <autorun> {
+    always_after {
+        min = ( n1 < n2 ) ? ( ( n1 < n3 ) ? n1 : n3 ) : ( ( n2 < n3 ) ? n2 : n3 );
+    }
+}
+algorithm max3(
+    input   int11   n1,
+    input   int11   n2,
+    input   int11   n3,
+    output  int11   max
+) <autorun> {
+    always_after {
+        max = ( n1 > n2 ) ? ( ( n1 > n3 ) ? n1 : n3 ) : ( ( n2 > n3 ) ? n2 : n3 );
+    }
+}
 algorithm preptriangle(
     input   uint1   start,
     output  uint1   busy(0),
@@ -607,14 +627,14 @@ algorithm preptriangle(
     output  int11   max_y,
     output  uint1   todraw
 ) <autorun> {
-    // TEMPORARY STORAGE FOR SWAPPING VARIABLES
-    int16 tx = uninitialised; int16 ty = uninitialised;
-    uint1   x1x2 <: ( x1 < x2 );                    uint1   y1y2 <: ( y1 < y2 );
-    uint1   x1x3 <: ( x1 < x3 );                    uint1   y1y3 <: ( y1 < y3 );
-    uint1   x2x3 <: ( x2 < x3 );                    uint1   y2y3 <: ( y2 < y3 );
-
     swaponcondition SWAP();
 
+    // Find minimum and maximum of x, x1, x2, y, y1 and y2 for the bounding box
+    min3 Xmin( n1 <: x1, n2 <: x2, n3 <: x3 );      min3 Ymin( n1 <: y1, n2 <: y2, n3 <: y3 );
+    max3 Xmax( n1 <: x1, n2 <: x2, n3 <: x3 );      max3 Ymax( n1 <: y1, n2 <: y2, n3 <: y3 );
+
+    istodraw TODRAW( crop_left <: crop_left, crop_right <: crop_right, crop_top <: crop_top, crop_bottom <: crop_bottom,
+                min_x <: min_x, min_y <: min_y, max_x <: max_x, max_y <: max_y );
     todraw := 0;
 
     while(1) {
@@ -633,19 +653,13 @@ algorithm preptriangle(
             SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( ( y2 == y1 ) & ( x2 < x1 ) ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( ( y2 != y1 ) & ( y3 >= y2 ) & ( x2 < x3 ) ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
             ++:
-            // Find minimum and maximum of x, x1, x2, y, y1 and y2 for the bounding box
-            min_x = x1x2 ? ( x1x3 ? x1 : x3 ) : ( x2x3 ? x2 : x3 );
-            max_x = x1x2 ? ( x2x3 ? x3 : x2 ) : ( x1x3 ? x3 : x1 );
-            min_y = y1y2 ? ( y1y3 ? y1 : y3 ) : ( y2y3 ? y2 : y3 );
-            max_y = y1y2 ? ( y2y3 ? y3 : y2 ) : ( y1y3 ? y3 : y1 );
-            ++:
             // Apply cropping rectangle
-            min_x = ( min_x < crop_left ) ? crop_left : min_x;
-            min_y = ( min_y < crop_top ) ? crop_top : min_y;
-            max_x = ( max_x > crop_right ) ? crop_right : max_x;
-            max_y = 1 + ( ( max_y > crop_bottom ) ? crop_bottom : max_y );
+            min_x = ( Xmin.min < crop_left ) ? crop_left : Xmin.min;
+            min_y = ( Ymin.min < crop_top ) ? crop_top : Ymin.min;
+            max_x = ( Xmax.max > crop_right ) ? crop_right : Xmax.max;
+            max_y = 1 + ( ( Ymax.max > crop_bottom ) ? crop_bottom : Ymax.max );
             ++:
-            todraw = ~( ( max_x < crop_left ) | ( max_y < crop_top ) | ( min_x > crop_right ) | ( min_y > crop_bottom ) );
+            todraw = TODRAW.draw;
             busy = 0;
         }
     }
