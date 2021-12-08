@@ -570,10 +570,10 @@ algorithm bitmap_memmap(
                     }
                     case 4he: {
                         switch( memoryAddress[1,2] ) {
-                            case 2h1: { pixel_writer.crop_left = writeData[15,1] ? 0 : writeData; }
-                            case 2h2: { pixel_writer.crop_right = __signed(writeData) > 319 ? 319 : writeData; }
-                            case 2h3: { pixel_writer.crop_top = writeData[15,1] ? 0 : writeData; }
-                            case 2h0: { pixel_writer.crop_bottom = __signed(writeData) > 239 ? 239 : writeData; }
+                            case 2h1: { pixel_writer.crop_left = writeData; }
+                            case 2h2: { pixel_writer.crop_right = writeData; }
+                            case 2h3: { pixel_writer.crop_top = writeData; }
+                            case 2h0: { pixel_writer.crop_bottom = writeData; }
                         }
                     }
                     case 4hf: {

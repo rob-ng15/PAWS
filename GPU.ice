@@ -64,22 +64,15 @@ algorithm gpu_queue(
 
     // QUEUE STORAGE
     uint1   queue_busy = 0;
-    int11   queue_x = uninitialised;
-    int11   queue_y = uninitialised;
-    uint7   queue_colour = uninitialised;
-    uint7   queue_colour_alt = uninitialised;
-    int11   queue_param0 = uninitialised;
-    int11   queue_param1 = uninitialised;
-    int11   queue_param2 = uninitialised;
-    int11   queue_param3 = uninitialised;
-    int11   queue_param4 = uninitialised;
-    int11   queue_param5 = uninitialised;
+    int11   queue_x = uninitialised;                int11   queue_y = uninitialised;
+    uint7   queue_colour = uninitialised;           uint7   queue_colour_alt = uninitialised;
+    int11   queue_param0 = uninitialised;           int11   queue_param1 = uninitialised;
+    int11   queue_param2 = uninitialised;           int11   queue_param3 = uninitialised;
+    int11   queue_param4 = uninitialised;           int11   queue_param5 = uninitialised;
     uint4   queue_dithermode = uninitialised;
     uint4   queue_write = uninitialised;
-    uint9   queue_cropL = uninitialised;
-    uint8   queue_cropT = uninitialised;
-    uint9   queue_cropR = uninitialised;
-    uint8   queue_cropB = uninitialised;
+    uint9   queue_cropL = uninitialised;            uint8   queue_cropT = uninitialised;
+    uint9   queue_cropR = uninitialised;            uint8   queue_cropB = uninitialised;
 
     GPU.gpu_write := 0; queue_full := vector_block_active | queue_busy ; queue_complete := ~( gpu_active | queue_full );
     bitmap_crop_left := GPU.crop_left; bitmap_crop_right := GPU.crop_right; bitmap_crop_top := GPU.crop_top; bitmap_crop_bottom := GPU.crop_bottom;
@@ -429,11 +422,11 @@ algorithm drawline(
     int11   numerator2 <:: numerator;                   int11   newnumerator <:: numerator - ( n2dx ? dy : 0 ) + ( n2dy ? dx : 0 );
     uint1   n2dx <:: numerator2 > (-dx);                uint1   n2dy <:: numerator2 < dy;
     uint1   dxdy <:: dx > dy;
-    int11   count = uninitialized;
+    int11   count = uninitialized;                      int11   countNEXT <:: count + 1;
     int11   offset_x = uninitialised;                   int11   offset_xNEXT <:: offset_y + dxdy;
     int11   offset_y = uninitialised;                   int11   offset_yNEXT <:: offset_x + ~dxdy;
     int11   offset_start <:: -( width >> 1 );
-    uint8   pixel_count = uninitialised;
+    uint8   pixel_count = uninitialised;                uint8   pixel_countNEXT <:: pixel_count + 1;
 
     bitmap_x_write := x + offset_x; bitmap_y_write := y + offset_y; bitmap_write := 0;
 
@@ -443,9 +436,9 @@ algorithm drawline(
             while( count != max_count ) {
                 pixel_count = 0; offset_x = dxdy ? 0 : offset_start; offset_y = dxdy ? offset_start : 0;
                 while( pixel_count != width ) {
-                    bitmap_write = 1; offset_y = offset_xNEXT; offset_x = offset_yNEXT; pixel_count = pixel_count + 1;
+                    bitmap_write = 1; offset_y = offset_xNEXT; offset_x = offset_yNEXT; pixel_count = pixel_countNEXT;
                 }
-                numerator = newnumerator; x = xNEXT; y = yNEXT; count = count + 1;
+                numerator = newnumerator; x = xNEXT; y = yNEXT; count = countNEXT;
             }
             busy = 0;
         }
@@ -495,9 +488,10 @@ algorithm drawcircle(
 ) <autorun> {
     int11   numerator = uninitialised;                  int11   new_numerator <:: numerator[10,1] ? numerator + { active_x, 2b00 } + 6 : numerator + { (active_x - active_y), 2b00 } + 10;
     uint1   positivenumerator <:: ~numerator[10,1] & ( |numerator );
-    int11   active_x = uninitialized;                   int11   active_y = uninitialized;
+    int11   active_x = uninitialized;                   int11   active_xNEXT <:: active_x + 1;
+    int11   active_y = uninitialized;                   int11   active_yNEXT <:: active_y - positivenumerator;
     int11   count = uninitialised;                      int11   countNEXT <:: filledcircle ? count - 1 : min_count;
-    int11   min_count = uninitialised;
+    int11   min_count = uninitialised;                  int11   min_countNEXT <:: min_count + 1;
     uint1   drawingcircle <:: ( active_y >= active_x ); uint1   finishsegment <:: ( countNEXT == min_count );
 
     // PLUS OR MINUS OFFSETS
@@ -528,7 +522,7 @@ algorithm drawcircle(
                     bitmap_y_write = ycpax;                             if( draw_sectors[7,1] ) { bitmap_write = 1; }
                 }
                 if( finishsegment ) {
-                    active_x = active_x + 1; active_y = active_y - positivenumerator; count = active_y; min_count = min_count + 1; numerator = new_numerator;
+                    active_x = active_xNEXT; active_y = active_yNEXT; count = active_y; min_count = min_countNEXT; numerator = new_numerator;
                 } else {
                     count = countNEXT;
                 }
@@ -828,11 +822,12 @@ algorithm blit(
     input   uint1   tilecharacter
 ) <autorun,reginputs> {
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
-    int11   x1 = uninitialized;                         int11   y1 = uninitialized;
-    uint7   px = uninitialized;                         blitscale PXS( offset <: px, scale <: scale );
-    uint7   py = uninitialized;                         blitscale PYS( offset <: py, scale <: scale );
-    uint4   x2 = uninitialised;
-    uint4   y2 = uninitialised;
+    int11   x1 = uninitialized;
+    int11   y1 = uninitialized;
+    uint4   x2 = uninitialised;                         int11   x2NEXT <:: x2 + 1;
+    uint4   y2 = uninitialised;                         int11   y2NEXT <:: y2 + 1;
+    uint7   px = uninitialized;                         blitscale PXS( offset <: px, scale <: scale );  int11   pxNEXT <:: px + 1;
+    uint7   py = uninitialized;                         blitscale PYS( offset <: py, scale <: scale );  int11   pyNEXT <:: py + 1;
 
     // MAX PIXELS IN TILE AND NUMBER OF TIMES TO USE EACH PIXEL
     uint5   max_pixels <:: tilecharacter ? 16 : 8;      uint4   max_count <:: ( 1 << scale );
@@ -859,13 +854,13 @@ algorithm blit(
                                 case 0: { bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1]; }
                                 case 1: { bitmap_write = ~colour7( colourblittilemap.rdata0 ).alpha; }
                             }
-                            x2 = x2 + 1;
+                            x2 = x2NEXT;
                         }
-                        y2 = y2 + 1;
+                        y2 = y2NEXT;
                     }
-                    px = px + 1;
+                    px = pxNEXT;
                 }
-                py = py + 1;
+                py = pyNEXT;
             }
             busy = 0;
         }
@@ -1027,8 +1022,8 @@ algorithm vectors(
     );
 
     // Vertices being processed, plus first coordinate of each line
-    uint5   vertex = uninitialised;                     uint5   vertexNEXT <:: vertex + 1;
-    uint1   working <:: vectorentry(vertex.rdata0).active & ( ~vertex[4,1] );
+    uint4   vertex = uninitialised;                     uint4   vertexNEXT <:: vertex + 1;
+    uint1   working <:: vectorentry(vertex.rdata0).active & ( |vertex );
 
     // Set read address for the vertices
     vertex.addr0 := { vector_block_number, vertex };
