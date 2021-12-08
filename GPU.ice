@@ -561,6 +561,27 @@ algorithm circle(
 }
 
 // TRIANGLE - OUTPUT PIXELS TO DRAW A FILLED TRIANGLE
+algorithm swaponcondition(
+    input   int11   x1,
+    input   int11   x2,
+    input   int11   y1,
+    input   int11   y2,
+    input   uint1   condition,
+    output  int11   nx1,
+    output  int11   nx2,
+    output  int11   ny1,
+    output  int11   ny2
+) <autorun,reginputs> {
+    always_after {
+        if( condition ) {
+            nx1 = x2; ny1 = y2;
+            nx2 = x1; ny2 = y1;
+        } else {
+            nx1 = x1; ny1 = y1;
+            nx2 = x2; ny2 = y2;
+        }
+    }
+}
 algorithm preptriangle(
     input   uint1   start,
     output  uint1   busy(0),
@@ -592,6 +613,8 @@ algorithm preptriangle(
     uint1   x1x3 <: ( x1 < x3 );                    uint1   y1y3 <: ( y1 < y3 );
     uint1   x2x3 <: ( x2 < x3 );                    uint1   y2y3 <: ( y2 < y3 );
 
+    swaponcondition SWAP();
+
     todraw := 0;
 
     while(1) {
@@ -603,13 +626,13 @@ algorithm preptriangle(
             ( x3, y3 ) = copycoordinates ( param2, param3 );
             ++:
             // Put points in order so that ( x1, y1 ) is at top, then ( x2, y2 ) and ( x3, y3 ) are clockwise from there
-            if( y3 < y2 ) { tx = x2; ty = y2; x2 = x3; y2 = y3; x3 = tx; y3 = ty; ++: }
-            if( y2 < y1 ) { tx = x1; ty = y1; x1 = x2; y1 = y2; x2 = tx; y2 = ty; ++: }
-            if( y3 < y1 ) { tx = x1; ty = y1; x1 = x3; y1 = y3; x3 = tx; y3 = ty; ++: }
-            if( y3 < y2 ) { tx = x2; ty = y2; x2 = x3; y2 = y3; x3 = tx; y3 = ty; ++: }
-            if( ( y2 == y1 ) & ( x2 < x1 ) ) { tx = x1; ty = y1; x1 = x2; y1 = y2; x2 = tx; y2 = ty; ++: }
-            if( ( y2 != y1 ) & ( y3 >= y2 ) & ( x2 < x3 ) ) { tx = x2; ty = y2; x2 = x3; y2 = y3; x3 = tx; y3 = ty; ++:}
-
+            SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
+            SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( y2 < y1 ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
+            SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y1 ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
+            SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
+            SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( ( y2 == y1 ) & ( x2 < x1 ) ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
+            SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( ( y2 != y1 ) & ( y3 >= y2 ) & ( x2 < x3 ) ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
+            ++:
             // Find minimum and maximum of x, x1, x2, y, y1 and y2 for the bounding box
             min_x = x1x2 ? ( x1x3 ? x1 : x3 ) : ( x2x3 ? x2 : x3 );
             max_x = x1x2 ? ( x2x3 ? x3 : x2 ) : ( x1x3 ? x3 : x1 );
