@@ -664,6 +664,23 @@ algorithm preptriangle(
         }
     }
 }
+algorithm intriangle(
+    input   int11   x0,
+    input   int11   y0,
+    input   int11   x1,
+    input   int11   y1,
+    input   int11   x2,
+    input   int11   y2,
+    input   int11   px,
+    input   int11   py,
+    output  uint1   IN
+) <autorun> {
+    always_after {
+        IN = ( (( x2 - x1 ) * ( py - y1 ) - ( y2 - y1 ) * ( px - x1 )) >= 0 ) &
+                ( (( x0 - x2 ) * ( py - y2 ) - ( y0 - y2 ) * ( px - x2 )) >= 0 ) &
+                ( (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 )) >= 0 );
+    }
+}
 algorithm drawtriangle(
     input   uint1   start,
     output  uint1   busy(0),
@@ -683,9 +700,7 @@ algorithm drawtriangle(
 ) <autorun> {
     // Filled triangle calculations
     // Is the point px,py inside the triangle given by x0,x1 x1,y1 x2,y2?
-    uint1   inTriangle <:: ( (( x2 - x1 ) * ( py - y1 ) - ( y2 - y1 ) * ( px - x1 )) >= 0 ) &
-                            ( (( x0 - x2 ) * ( py - y2 ) - ( y0 - y2 ) * ( px - x2 )) >= 0 ) &
-                            ( (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 )) >= 0 );
+    intriangle IS( x0 <: x0, x1 <: x1, x2 <: x2, px <: px, y0 <: y0, y1 <: y1, y2 <: y2, py <: py );
     uint1   beenInTriangle = uninitialized;
 
     // CLOSER TO LEFT OR RIGHT OF THE BOUNDING BOX
@@ -700,15 +715,15 @@ algorithm drawtriangle(
     uint1   stillinline <:: ( dx & ( px != max_x ) ) | ( ~dx & ( px != min_x ));
     uint1   working <:: ( py != max_y );
 
-    bitmap_x_write := px; bitmap_y_write := py; bitmap_write := busy & inTriangle;
+    bitmap_x_write := px; bitmap_y_write := py; bitmap_write := busy & IS.IN;
 
     while(1) {
         if( start ) {
             busy = 1;
             dx = 1; px = min_x; py = min_y;
             while( working ) {
-                beenInTriangle = inTriangle | beenInTriangle;
-                if( beenInTriangle ^ inTriangle ) {
+                beenInTriangle = IS.IN | beenInTriangle;
+                if( beenInTriangle ^ IS.IN ) {
                     // Exited the triangle, move to the next line
                     beenInTriangle = 0; py = pyNEXT; px = leftright ? min_x : max_x; dx = leftright;
                 } else {
