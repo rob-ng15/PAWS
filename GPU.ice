@@ -621,10 +621,10 @@ algorithm preptriangle(
     output  int11   y2,
     output  int11   x3,
     output  int11   y3,
-    output  int11   min_x,
-    output  int11   min_y,
-    output  int11   max_x,
-    output  int11   max_y,
+    output  uint9   min_x,
+    output  uint8   min_y,
+    output  uint9   max_x,
+    output  uint8   max_y,
     output  uint1   todraw
 ) <autorun> {
     swaponcondition SWAP();
@@ -644,7 +644,7 @@ algorithm preptriangle(
             ( x1, y1 ) = copycoordinates ( x, y );
             ( x2, y2 ) = copycoordinates ( param0, param1 );
             ( x3, y3 ) = copycoordinates ( param2, param3 );
-            //++:
+
             // Put points in order so that ( x1, y1 ) is at top, then ( x2, y2 ) and ( x3, y3 ) are clockwise from there
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
             SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( y2 < y1 ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
@@ -652,7 +652,7 @@ algorithm preptriangle(
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
             SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( ( y2 == y1 ) & ( x2 < x1 ) ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( ( y2 != y1 ) & ( y3 >= y2 ) & ( x2 < x3 ) ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
-            //++:
+
             // Apply cropping rectangle
             min_x = ( Xmin.min < crop_left ) ? crop_left : Xmin.min;
             min_y = ( Ymin.min < crop_top ) ? crop_top : Ymin.min;
@@ -686,10 +686,10 @@ algorithm intriangle(
 algorithm drawtriangle(
     input   uint1   start,
     output  uint1   busy(0),
-    input   int11   min_x,
-    input   int11   min_y,
-    input   int11   max_x,
-    input   int11   max_y,
+    input   uint9   min_x,
+    input   uint8   min_y,
+    input   uint9   max_x,
+    input   uint8   max_y,
     input   int11   x0,
     input   int11   y0,
     input   int11   x1,
@@ -709,8 +709,8 @@ algorithm drawtriangle(
     uint1   leftright <:: ( px - min_x ) < ( max_x - px );
 
     // WORK COORDINATES AND DIRECTION
-    int11   px = uninitialized;                         int11   pxNEXT <:: px + ( dx ? 1 : (-1) );
-    int11   py = uninitialized;                         int11   pyNEXT <:: py + 1;
+    uint9   px = uninitialized;                         uint9   pxNEXT <:: px + ( dx ? 1 : (-1) );
+    uint8   py = uninitialized;                         uint8   pyNEXT <:: py + 1;
     uint1   dx = uninitialized;
 
     // DETECT IF AT LEFT/RIGHT/BOTTOM OF THE BOUNDING BOX
