@@ -155,6 +155,7 @@ algorithm character_map_writer(
 
     while(1) {
         if( |tpu_active ) {
+            tpu_cs_addr = tpu_start_cs_addr;
             onehot( tpu_active ) {
                 case 0: {                                                                                                                               // TPU WIPE - WHOLE OR PARTIAL SCREEN (LINE)
                     charactermap.wdata1 = 0; colourmap.wdata1 = 13b1000000000000;
@@ -180,8 +181,6 @@ algorithm character_map_writer(
                 }
             }
             tpu_active = 0;
-        } else {
-            tpu_cs_addr = tpu_start_cs_addr;
         }
     }
 }
