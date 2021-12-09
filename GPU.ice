@@ -644,7 +644,7 @@ algorithm preptriangle(
             ( x1, y1 ) = copycoordinates ( x, y );
             ( x2, y2 ) = copycoordinates ( param0, param1 );
             ( x3, y3 ) = copycoordinates ( param2, param3 );
-            ++:
+            //++:
             // Put points in order so that ( x1, y1 ) is at top, then ( x2, y2 ) and ( x3, y3 ) are clockwise from there
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
             SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( y2 < y1 ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
@@ -652,7 +652,7 @@ algorithm preptriangle(
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( y3 < y2 ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
             SWAP.x1 = x1; SWAP.y1 = y1; SWAP.x2 = x2; SWAP.y2 = y2; SWAP.condition = ( ( y2 == y1 ) & ( x2 < x1 ) ); ++: x1 = SWAP.nx1; y1 = SWAP.ny1; x2 = SWAP.nx2; y2 = SWAP.ny2;
             SWAP.x1 = x2; SWAP.y1 = y2; SWAP.x2 = x3; SWAP.y2 = y3; SWAP.condition = ( ( y2 != y1 ) & ( y3 >= y2 ) & ( x2 < x3 ) ); ++: x2 = SWAP.nx1; y2 = SWAP.ny1; x3 = SWAP.nx2; y3 = SWAP.ny2;
-            ++:
+            //++:
             // Apply cropping rectangle
             min_x = ( Xmin.min < crop_left ) ? crop_left : Xmin.min;
             min_y = ( Ymin.min < crop_top ) ? crop_top : Ymin.min;
@@ -675,10 +675,12 @@ algorithm intriangle(
     input   int11   py,
     output  uint1   IN
 ) <autorun> {
+    int22   step1 <:: (( x2 - x1 ) * ( py - y1 ) - ( y2 - y1 ) * ( px - x1 ));
+    int22   step2 <:: (( x0 - x2 ) * ( py - y2 ) - ( y0 - y2 ) * ( px - x2 ));
+    int22   step3 <:: (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 ));
+
     always_after {
-        IN = ( (( x2 - x1 ) * ( py - y1 ) - ( y2 - y1 ) * ( px - x1 )) >= 0 ) &
-                ( (( x0 - x2 ) * ( py - y2 ) - ( y0 - y2 ) * ( px - x2 )) >= 0 ) &
-                ( (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 )) >= 0 );
+        IN =  &(~{ step1[21,1], step2[21,1], step3[21,1] });
     }
 }
 algorithm drawtriangle(
