@@ -83,6 +83,7 @@ $$else
 $$end
 ) <@clock_system> {
     uint1   clock_system = uninitialized;
+    uint1   clock_io = uninitialized;
     uint1   clock_cpu = uninitialized;
     uint1   clock_decode = uninitialized;
 $$if VERILATOR then
@@ -93,7 +94,8 @@ $$if VERILATOR then
       sdram_clock   :> sdram_clock,
       clock_decode   :> clock_decode,
       compute_clock :> clock_system,
-      compute_clock :> clock_cpu
+      compute_clock :> clock_cpu,
+      compute_clock :> clock_io
     );
 $$else
     $$clock_25mhz = 'clock'
@@ -104,6 +106,7 @@ $$else
     ulx3s_clk_risc_ice_v_SYSTEM clk_gen_SYSTEM (
         clkin    <: $clock_25mhz$,
         clkSYSTEM  :> clock_system,
+        clkIO :> clock_io,
         clkSDRAM :> sdram_clock,
         clkSDRAMcontrol :> sdram_clk,
         locked   :> pll_lock_SYSTEM
@@ -160,7 +163,7 @@ $$end
     );
 
     // MEMORY MAPPED I/O + SMT CONTROLS
-    io_memmap IO_Map <@clock_system,!reset> (
+    io_memmap IO_Map <@clock_io,!reset> (
         leds :> leds,
 $$if not SIMULATION then
         gn <: gn,
@@ -187,13 +190,13 @@ $$if SIMULATION then
     uint4 audio_l(0);
     uint4 audio_r(0);
 $$end
-    timers_memmap TIMERS_Map <@clock_system,!reset> (
+    timers_memmap TIMERS_Map <@clock_io,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,5],
         writeData <: CPU.writedata,
     );
 
-    audio_memmap AUDIO_Map <@clock_system,!reset> (
+    audio_memmap AUDIO_Map <@clock_io,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,3],
         writeData <: CPU.writedata,
@@ -202,7 +205,7 @@ $$end
         static4bit <: TIMERS_Map.static16bit[0,4]
     );
 
-    video_memmap VIDEO_Map <@clock_system,!reset> (
+    video_memmap VIDEO_Map <@clock_io,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,12],
         memoryWrite <: VmemoryWrite,
@@ -257,9 +260,16 @@ $$end
                 AUDIO ? AUDIO_Map.readData :
                 IO? IO_Map.readData : 0;
 
-    RAM.writeflag := BRAM & CPU.writememory;                                                            RAM.readflag := BRAM & CPU.readmemory;
-    AUDIO_Map.memoryWrite := AUDIO & CPU.writememory;                                                   AUDIO_Map.memoryRead := AUDIO & CPU.readmemory;
-    TIMERS_Map.memoryWrite := TIMERS & CPU.writememory;                                                 TIMERS_Map.memoryRead := TIMERS & CPU.readmemory;
+    always_before {
+        RAM.readflag = BRAM & CPU.readmemory;
+        AUDIO_Map.memoryRead = AUDIO & CPU.readmemory;
+        TIMERS_Map.memoryRead = TIMERS & CPU.readmemory;
+    }
+    always_after {
+        RAM.writeflag = BRAM & CPU.writememory;
+        AUDIO_Map.memoryWrite = AUDIO & CPU.writememory;
+        TIMERS_Map.memoryWrite = TIMERS & CPU.writememory;
+    }
 }
 
 // RAM - BRAM controller
@@ -323,18 +333,12 @@ algorithm cachecontroller(
     simple_dualport_bram uint14 tags[8192] = uninitialized;
 
     // CACHE WRITER
-    cachewriter CW( cache <:> cache, tags <:> tags, address <: address);
+    cachewriter CW( cache <:> cache, tags <:> tags, address <: address );
 
     // SDRAM CONTROLLER
-    uint1   sdramwrite = uninitialized;
-    uint1   sdramread = uninitialized;
-    uint26  sdramaddress = uninitialized;
     sdramcontroller SDRAM(
         sio <:> sio,
-        address <: sdramaddress,
-        writedata <: cache.rdata0,
-        writeflag <: sdramwrite,
-        readflag <: sdramread,
+        writedata <: cache.rdata0
     );
 
     // CACHE TAG match flag
@@ -349,7 +353,7 @@ algorithm cachecontroller(
     uint1   dowrite = uninitialized;
 
     // SDRAM ACCESS
-    sdramread := 0; sdramwrite := 0;
+    SDRAM.readflag := 0; SDRAM.writeflag := 0;
 
     // FLAGS FOR CACHE ACCESS
     cache.addr0 := address[1,13]; tags.addr0 := address[1,13]; CW.update := 0;
@@ -366,10 +370,10 @@ algorithm cachecontroller(
                 CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;                                                      // IN CACHE, UPDATE IF WRITE
             } else {
                 if( cachetag(tags.rdata0).needswrite ) {                                                                                        // CHECK IF CACHE LINE IS OCCUPIED
-                    while( SDRAM.busy ) {} sdramaddress = { cachetag(tags.rdata0).partaddress, address[1,13], 1b0 }; sdramwrite = 1;            // EVICT FROM CACHE TO SDRAM
+                    while( SDRAM.busy ) {} SDRAM.address = { cachetag(tags.rdata0).partaddress, address[1,13], 1b0 }; SDRAM.writeflag = 1;      // EVICT FROM CACHE TO SDRAM
                 }
                 if( doread | ( dowrite & byteaccess ) ) {
-                    while( SDRAM.busy ) {} sdramaddress = address; sdramread = 1; while( SDRAM.busy ) {}                                        // READ FOR READ OR 8 BIT WRITE
+                    while( SDRAM.busy ) {} SDRAM.address = address; SDRAM.readflag = 1; while( SDRAM.busy ) {}                                  // READ FOR READ OR 8 BIT WRITE
                     CW.needwritetosdram = dowrite; CW.writedata = dowrite ? writethrough : SDRAM.readdata; CW.update = 1;                       // UPDATE THE CACHE
                 } else {
                     CW.needwritetosdram = 1; CW.writedata = writethrough; CW.update = dowrite;                                                  // UPDATE CACHE FOR 16 BIT WRITE
@@ -388,11 +392,18 @@ algorithm cachewriter(
     simple_dualport_bram_port1 cache,
     simple_dualport_bram_port1 tags
 ) <autorun,reginputs> {
+    cache.wenable1 := 1; tags.wenable1 := 1;
     always_after {
-        cache.wenable1 = update; tags.wenable1 = update;
-        cache.addr1 = address[1,13]; cache.wdata1 = writedata;
-        tags.addr1 = address[1,13]; tags.wdata1 = { needwritetosdram, 1b1, address[14,12] };
+        if( update ) {
+            cache.addr1 = address[1,13]; cache.wdata1 = writedata;
+            tags.addr1 = address[1,13]; tags.wdata1 = { needwritetosdram, 1b1, address[14,12] };
+        }
     }
+//    always_after {
+//        cache.wenable1 = update; tags.wenable1 = update;
+//        cache.addr1 = address[1,13]; cache.wdata1 = writedata;
+//        tags.addr1 = address[1,13]; tags.wdata1 = { needwritetosdram, 1b1, address[14,12] };
+//    }
 }
 
 algorithm sdramcontroller(
@@ -403,13 +414,13 @@ algorithm sdramcontroller(
     input   uint1   readflag,
     output  uint16  readdata,
     output  uint1   busy(0)
-) <autorun> {
+) <autorun,reginputs> {
     // MEMORY ACCESS FLAGS
     sio.addr := { address[1,25], 1b0 }; sio.in_valid := ( readflag | writeflag );
     sio.data_in := writedata; sio.rw := writeflag;
     readdata := sio.data_out;
 
-    always {
+    always_after {
         if( readflag | writeflag ) { busy = 1; }
         if( sio.done ) { busy = 0; }
     }

@@ -38,7 +38,7 @@ $$end
     // SMT STATUS
     output  uint1   SMTRUNNING(0),
     output  uint32  SMTSTARTPC(0)
-) <autorun>{
+) <autorun,reginputs> {
 $$if not SIMULATION then
     // UART CONTROLLER, CONTAINS BUFFERS FOR INPUT/OUTPUT
     uint2   UARTinread = 0;                                                                                                         // 2 BIT LATCH ( bit 0 is the signal ) due to clock boundary change

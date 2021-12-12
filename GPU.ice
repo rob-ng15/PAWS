@@ -266,7 +266,7 @@ algorithm istodraw(
     output  uint1   draw
 ) <autorun> {
     always_after {
-        draw = ~( ( max_x < crop_left ) | ( max_y < crop_top ) | ( min_x > crop_right ) | ( min_y > crop_bottom ) );
+        draw = ~|{ ( max_x < crop_left ), ( max_y < crop_top ), ( min_x > crop_right ), ( min_y > crop_bottom ) };
     }
 }
 // RECTANGLE - OUTPUT PIXELS TO DRAW A RECTANGLE
@@ -337,10 +337,10 @@ algorithm drawrectangle(
 algorithm rectangle (
     input   uint1   start,
     output  uint1   busy(0),
-    input   int11   crop_left,
-    input   int11   crop_right,
-    input   int11   crop_top,
-    input   int11   crop_bottom,
+    input   uint9   crop_left,
+    input   uint9   crop_right,
+    input   uint8   crop_top,
+    input   uint8   crop_bottom,
     input   int11   x,
     input   int11   y,
     input   int11   x1,
@@ -680,7 +680,7 @@ algorithm intriangle(
     int22   step3 <:: (( x1 - x0 ) * ( py - y0 ) - ( y1 - y0 ) * ( px - x0 ));
 
     always_after {
-        IN =  &(~{ step1[21,1], step2[21,1], step3[21,1] });
+        IN =  ~|{ step1[21,1], step2[21,1], step3[21,1] };
     }
 }
 algorithm drawtriangle(
@@ -719,11 +719,11 @@ algorithm drawtriangle(
 
     bitmap_x_write := px; bitmap_y_write := py; bitmap_write := busy & IS.IN;
 
-    while(1) {
+    always {
         if( start ) {
-            busy = 1;
-            dx = 1; px = min_x; py = min_y;
-            while( working ) {
+            busy = 1; dx = 1; px = min_x; py = min_y;
+        } else {
+            if( working ) {
                 beenInTriangle = IS.IN | beenInTriangle;
                 if( beenInTriangle ^ IS.IN ) {
                     // Exited the triangle, move to the next line
@@ -732,18 +732,19 @@ algorithm drawtriangle(
                     // MOVE TO THE NEXT PIXEL ON THE LINE LEFT/RIGHT OR DOWN AND SWITCH DIRECTION IF AT END
                     if( stillinline ) { px = pxNEXT; } else { dx = ~dx; beenInTriangle = 0; py = pyNEXT; }
                 }
+            } else {
+                busy = 0;
             }
-            busy = 0;
         }
     }
 }
 algorithm triangle(
     input   uint1   start,
     output  uint1   busy(0),
-    input   int11   crop_left,
-    input   int11   crop_right,
-    input   int11   crop_top,
-    input   int11   crop_bottom,
+    input   uint9   crop_left,
+    input   uint9   crop_right,
+    input   uint8   crop_top,
+    input   uint8   crop_bottom,
     input   int11   x,
     input   int11   y,
     input   int11   x1,
@@ -820,41 +821,6 @@ algorithm cololurblittilexy(
         yintile = action[2,1] ? action00 ? py[0,4] : action01 ? px[0,4] : action10 ? revy : revx : action[1,1] ? revy :  py[0,4];
     }
 }
-algorithm blittilebitmapwriter(
-    // For setting blit1 tile bitmaps
-    input   uint6   blit1_writer_tile,
-    input   uint4   blit1_writer_line,
-    input   uint16  blit1_writer_bitmap,
-
-    // For setting character generator bitmaps
-    input   uint9   character_writer_character,
-    input   uint3   character_writer_line,
-    input   uint8   character_writer_bitmap,
-
-    simple_dualport_bram_port1 blit1tilemap,
-    simple_dualport_bram_port1 characterGenerator8x8
-) <autorun,reginputs> {
-    blit1tilemap.wenable1 := 1; characterGenerator8x8.wenable1 := 1;
-    always_after {
-        blit1tilemap.addr1 = { blit1_writer_tile, blit1_writer_line }; blit1tilemap.wdata1 = blit1_writer_bitmap;
-        characterGenerator8x8.addr1 = { character_writer_character, character_writer_line }; characterGenerator8x8.wdata1 = character_writer_bitmap;
-    }
-}
-algorithm colourblittilebitmapwriter(
-    // For setting  colourblit tile bitmaps
-    input   uint6   colourblit_writer_tile,
-    input   uint4   colourblit_writer_line,
-    input   uint4   colourblit_writer_pixel,
-    input   uint7   colourblit_writer_colour,
-
-    simple_dualport_bram_port1 colourblittilemap,
-) <autorun,reginputs> {
-    colourblittilemap.wenable1 := 1;
-    always_after {
-        colourblittilemap.addr1 = { colourblit_writer_tile, colourblit_writer_line, colourblit_writer_pixel };
-        colourblittilemap.wdata1 = colourblit_writer_colour;
-    }
-}
 algorithm blit(
     input   uint2   start,
     output  uint2   busy(0),
@@ -920,9 +886,6 @@ algorithm blit(
         }
     }
 }
-
-
-
 
 // PIXELBLOCK - OUTPUT PIXELS TO RECTANGLE START AT X, Y WITH WIDTH PARAM0, PIXELS PROVIDED SEQUENTIALLY BY CPU, MOVE ALONG RECTANGLE UNTIL STOP RECEIVED
 // CAN HANDLE 7bit ( ARRGGBB ) colours, with one defined as transparent or 24bit RGB colours, scaling to the PAWS colour map
@@ -1034,21 +997,6 @@ algorithm centreplusdelta(
         }
     }
 }
-algorithm vertexwriter(
-    // For setting vertices
-    input   uint6   vertices_writer_block,
-    input   uint4   vertices_writer_vertex,
-    input   int6    vertices_writer_xdelta,
-    input   int6    vertices_writer_ydelta,
-    input   uint1   vertices_writer_active,
-    simple_dualport_bram_port1 vertex
-) <autorun,reginputs> {
-    vertex.wenable1 := 1;
-    always_after {
-        vertex.addr1 = { vertices_writer_block, vertices_writer_vertex };
-        vertex.wdata1 = { vertices_writer_active, __unsigned(vertices_writer_xdelta), __unsigned(vertices_writer_ydelta) };
-    }
-}
 algorithm vectors(
     simple_dualport_bram_port0 vertex,
     input   uint6   vector_block_number,
@@ -1105,6 +1053,8 @@ algorithm vectors(
                 vertex = vertexNEXT;
             }
             vector_block_active = 0;
+        } else {
+            vertex = 0;
         }
     }
 }
