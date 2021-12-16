@@ -146,11 +146,12 @@ algorithm timers_memmap(
     input   uint16  writeData,
     output  uint16  readData,
 
-    // RNG
-    output  uint16  static16bit
+    // RNG + CURSOR BLINK
+    output  uint16  static16bit,
+    output  uint1   cursor
 ) <autorun,reginputs> {
     // TIMERS and RNG
-    timers_rng timers <@clock_25mhz> ( g_noise_out :> static16bit );
+    timers_rng timers <@clock_25mhz> ( systemclock :> cursor, g_noise_out :> static16bit );
     uint3   timerreset <:: memoryAddress[1,3] + 1;
     uint32  floatrng <:: { 1b0, 5b01111, &timers.u_noise_out[0,3] ? 3b110 : timers.u_noise_out[0,3], timers.g_noise_out[0,16], timers.u_noise_out[3,7] };
 

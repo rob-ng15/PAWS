@@ -5,8 +5,9 @@
 module ulx3s_clk_risc_ice_v_CPU
 (
     input clkin,                // 25 MHz, 0 deg
-    output  clkCPU,             // 50 MHz, 0 deg        // SYSTEM CLOCK, cpu, memory, I/O
+    output  clkCPU,             // 50 MHz, 0 deg        // SYSTEM CLOCK cpu
     output  clkDECODE,          // 100 MHz, 0 deg       // CPU compressed instruction expander
+    output  clk100,             // 100 MHz, 0 deg
     output  locked
 );
 (* FREQUENCY_PIN_CLKI="25" *)
@@ -33,6 +34,9 @@ EHXPLLL #(
         .CLKOS_DIV(6),
         .CLKOS_CPHASE(5),
         .CLKOS_FPHASE(0),
+        .CLKOS2_DIV(6),
+        .CLKOS2_CPHASE(5),
+        .CLKOS2_FPHASE(0),
         .FEEDBK_PATH("CLKOP"),
         .CLKFB_DIV(2)
     ) pll_i (
@@ -41,6 +45,7 @@ EHXPLLL #(
         .CLKI(clkin),
         .CLKOP(clkCPU),
         .CLKOS(clkDECODE),
+        .CLKOS2(clk100),
         .CLKFB(clkCPU),
         .CLKINTFB(),
         .PHASESEL0(1'b0),

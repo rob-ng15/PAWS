@@ -5,10 +5,10 @@
 module ulx3s_clk_risc_ice_v_SYSTEM
 (
     input clkin,                // 25 MHz, 0 deg
-    output  clkSYSTEM,          // 50 MHz, 0 deg       // SYSTEM CLOCK, memory
-    output  clkIO,          // 50 MHz, 0 deg       // SYSTEM CLOCK, I/O
-    output  clkSDRAM,           // 100 MHz, 0 deg      // SDRAM
-    output  clkSDRAMcontrol,    // 100 MHz, 180 deg    // SDRAM controller
+    output  clkSYSTEM,          // 50 MHz, 0 deg        // SYSTEM CLOCK, memory
+    output  clkIO,              // 50 MHz, 0 deg        // SYSTEM CLOCK, I/O
+    output  clkSDRAM,           // 100 MHz, 0 deg       // SDRAM
+    output  clkSDRAMcontrol,    // 100 MHz, 180 deg     // SDRAM controller
     output  locked
 );
 (* FREQUENCY_PIN_CLKI="25" *)

@@ -26,13 +26,10 @@ $$if VGA then
     output  uint1 video_vs,
 $$end
 
-    // RNG
-    input   uint6   static6bit
+    // RNG + CURSOR
+    input   uint6   static6bit,
+    input   uint1   blink
 ) <autorun,reginputs> {
-    // CURSOR CLOCK
-    uint1   blink = uninitialised;
-    pulsecursor CURSOR <@clock_video> ( show :> blink );
-
     // Video Reset
     uint1   video_reset = uninitialised; clean_reset sdram_rstcond<@clock_video,!reset> ( out :> video_reset );
 
@@ -518,9 +515,9 @@ algorithm bitmap_memmap(
                         switch( memoryAddress[1,3] ) {
                             case 3h0: { vertex.addr1[4,6] = writeData; }
                             case 3h1: { vertex.addr1[0,4] = writeData; }
-                            case 3h2: { vertex.wdata1[12,1] = writeData; }
-                            case 3h3: { vertex.wdata1[6,6] = writeData; }
-                            case 3h4: { vertex.wdata1[0,6] = writeData; }
+                            case 3h2: { vertex.wdata1[6,6] = writeData; }
+                            case 3h3: { vertex.wdata1[0,6] = writeData; }
+                            case 3h4: { vertex.wdata1[12,1] = writeData; }
                             default: {}
                         }
                     }

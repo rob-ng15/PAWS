@@ -77,9 +77,17 @@ algorithm gpu_queue(
     GPU.gpu_write := 0; queue_full := vector_block_active | queue_busy ; queue_complete := ~( gpu_active | queue_full );
     bitmap_crop_left := GPU.crop_left; bitmap_crop_right := GPU.crop_right; bitmap_crop_top := GPU.crop_top; bitmap_crop_bottom := GPU.crop_bottom;
 
-    always {
+    always_before {
+        if( vector_drawer_gpu_write ) {
+            GPU.gpu_colour = vector_block_colour;
+            GPU.gpu_x = vector_drawer_gpu_x; GPU.gpu_y = vector_drawer_gpu_y;
+            GPU.gpu_param0 = vector_drawer_gpu_param0; GPU.gpu_param1 = vector_drawer_gpu_param1;
+            GPU.gpu_param2 = 1;
+            GPU.crop_left = crop_left; GPU.crop_right = crop_right; GPU.crop_top = crop_top; GPU.crop_bottom = crop_bottom;
+            GPU.gpu_write = 2;
+        }
         if( |gpu_write ) {
-            queue_dithermode = gpu_dithermode; queue_colour = gpu_colour; queue_colour_alt = gpu_colour_alt; queue_write = gpu_write;
+            queue_busy = 1; queue_dithermode = gpu_dithermode; queue_colour = gpu_colour; queue_colour_alt = gpu_colour_alt; queue_write = gpu_write;
             ( queue_x, queue_y ) = copycoordinates( gpu_x, gpu_y );
             ( queue_param0, queue_param1 ) = copycoordinates( gpu_param0, gpu_param1 );
             ( queue_param2, queue_param3 ) = copycoordinates( gpu_param2, gpu_param3 );
@@ -87,39 +95,36 @@ algorithm gpu_queue(
             ( queue_cropL, queue_cropR ) = copycoordinates( crop_left, crop_right );
             ( queue_cropT, queue_cropB ) = copycoordinates( crop_top, crop_bottom );
         }
-        if( vector_drawer_gpu_write ) {
-            GPU.gpu_dithermode = 0; GPU.gpu_colour = vector_block_colour; GPU.gpu_colour_alt = 0;
-            GPU.gpu_x = vector_drawer_gpu_x; GPU.gpu_y = vector_drawer_gpu_y;
-            GPU.gpu_param0 = vector_drawer_gpu_param0; GPU.gpu_param1 = vector_drawer_gpu_param1;
-            GPU.gpu_param2 = 1; GPU.gpu_param3 = 0;
-            GPU.crop_left = crop_left; GPU.crop_right = crop_right; GPU.crop_top = crop_top; GPU.crop_bottom = crop_bottom;
-            GPU.gpu_write = 2;
-        }
     }
-
-    while(1) {
-        if( |gpu_write ) {
-            // WAIT FOR GPU TO FINISH, SET UP COMMAND / 1ST TRIANGLE FOR QUADRILATERALS
-            queue_busy = 1; while( gpu_active ) {}
-
+    always_after {
+        if( queue_busy & ~gpu_active ) {
             GPU.gpu_dithermode = queue_dithermode; GPU.gpu_colour = queue_colour; GPU.gpu_colour_alt = queue_colour_alt;
             GPU.gpu_x = queue_x; GPU.gpu_y = queue_y;
             GPU.gpu_param0 = queue_param0; GPU.gpu_param1 = queue_param1;
             GPU.gpu_param2 = queue_param2; GPU.gpu_param3 = queue_param3;
             GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
 
-            if( &queue_write ) {
-                // QUADRILATERAL, SEND FIRST TRIANGLE TO GPU
-                GPU.gpu_write = 6; while( gpu_active ) {}
-                // SECOND TRIANGLE TO GPU
-                GPU.gpu_param0 = queue_param4; GPU.gpu_param1 = queue_param5;
-                GPU.gpu_write = 6;
-            } else {
-                // EVERYTHING ELSE, SEND TO GPU
-                GPU.gpu_write = queue_write;
-            }
+            switch( queue_write ) {
+                case 14: {
+                    // SECOND TRIANGLE TO GPU
+                    GPU.gpu_param0 = queue_param4; GPU.gpu_param1 = queue_param5;
+                    GPU.gpu_write = 6;
+                    queue_write = 0;
 
-            queue_busy = 0;
+                }
+                case 15: {
+                    // QUADRILATERAL, SEND FIRST TRIANGLE TO GPU
+                    GPU.gpu_write = 6;
+                    queue_write = 14;
+                }
+                default: {
+                    // EVERYTHING ELSE, SEND TO GPU
+                    GPU.gpu_write = queue_write;
+                    queue_write = 0;
+                }
+            }
+        } else {
+            queue_busy = |queue_write;
         }
     }
 }
@@ -204,7 +209,7 @@ algorithm gpu(
     GPUrectangle.start := 0; GPUline.start := 0; GPUcircle.start := 0; GPUtriangle.start := 0; GPUblit.start := 0; GPUpixelblock.start := 0;
     gpu_active := ( |gpu_write[1,3] ) | gpu_busy;
 
-    always_before {
+    always_after {
         switch( gpu_write ) {
             case 0: {}
             case 1: {
@@ -233,9 +238,6 @@ algorithm gpu(
                 }
             }
         }
-    }
-
-    always_after {
         if( gpu_busy ) {
             // COPY OUTPUT TO THE BITMAP WRITER
             onehot( gpu_busy_flags ) {

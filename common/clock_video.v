@@ -6,7 +6,7 @@ module ulx3s_clk_risc_ice_v_VIDEO
 (
     input clkin,                // 25 MHz, 0 deg
     output  clkGPU,             // 50 MHz, 0 deg        // GPU CLOCK ( if used )
-    output  clkVIDEO,           // 25 MHz, 0 deg        // 25MHz VIDEO CLOCK
+    output  clkVIDEO,           // 25 MHz, 0 deg        // 25MHz VIDEO CLOCK ( if used )
     output  locked
 );
 (* FREQUENCY_PIN_CLKI="25" *)

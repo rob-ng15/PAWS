@@ -6,7 +6,7 @@ algorithm alushift(
     output  uint32  SRL,
     output  uint32  SRA
 ) <autorun> {
-    always {
+    always_after {
         SLL = sourceReg1 << shiftcount;
         SRL = sourceReg1 >> shiftcount;
         SRA = __signed(sourceReg1) >>> shiftcount;
@@ -19,7 +19,7 @@ algorithm aluaddsub(
     input   int32   negoperand2,
     output  int32   AS
 ) <autorun> {
-    always {
+    always_after {
         AS = sourceReg1 + ( dosub ? negoperand2 : operand2 );
     }
 }
@@ -61,7 +61,7 @@ algorithm alu(
     alushift SHIFTS( sourceReg1 <: sourceReg1, shiftcount <: shiftcount );
     alulogic LOGIC( sourceReg1 <: sourceReg1, operand2 <: operand2 );
 
-    always {
+    always_after {
         switch( function3 ) {
             case 3b000: { result = ADDSUB.AS; }
             case 3b001: { result = SHIFTS.SLL; }

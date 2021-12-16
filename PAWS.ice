@@ -152,9 +152,7 @@ $$end
         sio <:> sio_halfrate,
         byteaccess <: byteaccess,
         address <: CPU.address[0,26],
-        writedata <: CPU.writedata,
-        writeflag <: sdramwriteflag,
-        readflag <: sdramreadflag
+        writedata <: CPU.writedata
     );
     bramcontroller RAM <@clock_system,!reset> (
         byteaccess <: byteaccess,
@@ -181,9 +179,7 @@ $$end
         clock_25mhz <: $clock_25mhz$,
 
         memoryAddress <: CPU.address[0,12],
-        memoryWrite <: IOmemoryWrite,
-        writeData <: CPU.writedata,
-        memoryRead <: IOmemoryRead
+        writeData <: CPU.writedata
     );
 
 $$if SIMULATION then
@@ -193,7 +189,7 @@ $$end
     timers_memmap TIMERS_Map <@clock_io,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,5],
-        writeData <: CPU.writedata,
+        writeData <: CPU.writedata
     );
 
     audio_memmap AUDIO_Map <@clock_io,!reset> (
@@ -208,9 +204,7 @@ $$end
     video_memmap VIDEO_Map <@clock_io,!reset> (
         clock_25mhz <: $clock_25mhz$,
         memoryAddress <: CPU.address[0,12],
-        memoryWrite <: VmemoryWrite,
         writeData <: CPU.writedata,
-        memoryRead <: VmemoryRead,
 $$if HDMI then
         gpdi_dp :> gpdi_dp,
 $$end
@@ -221,19 +215,16 @@ $$if VGA then
         video_hs :> video_hs,
         video_vs :> video_vs,
 $$end
-        static6bit <: TIMERS_Map.static16bit[0,6]
+        static6bit <: TIMERS_Map.static16bit[0,6],
+        blink <: TIMERS_Map.cursor
     );
 
     PAWSCPU CPU <@clock_cpu,!reset> (
         clock_CPUdecoder <: clock_decode,
         SMTRUNNING <: IO_Map.SMTRUNNING,
         SMTSTARTPC <: IO_Map.SMTSTARTPC[0,27],
-        memorybusy <: memorybusy,
         readdata <: readdata
     );
-
-    // SDRAM -> CPU BUSY STATE
-    uint1   memorybusy <:: DRAM.busy | ( ( CPU.readmemory | CPU.writememory ) & ( BRAM | SDRAM ) );
 
     // IDENTIFY ADDRESS BLOCK
     uint1   SDRAM <: CPU.address[26,1];
@@ -244,15 +235,7 @@ $$end
     uint1   AUDIO <: IOmem & ( CPU.address[12,2] == 2h2 );
     uint1   IO <: IOmem & ( &CPU.address[12,2] );
 
-    // WRITE TO SDRAM / BRAM / IO REGISTERS
-    uint1   sdramwriteflag <:: SDRAM & CPU.writememory;
-    uint1   VmemoryWrite <:: VIDEO & CPU.writememory;
-    uint1   IOmemoryWrite <:: IO & CPU.writememory;
-
     // READ FROM SDRAM / BRAM / IO REGISTERS
-    uint1   sdramreadflag <: SDRAM & CPU.readmemory;
-    uint1   VmemoryRead <: VIDEO & CPU.readmemory;
-    uint1   IOmemoryRead <: IO & CPU.readmemory;
     uint16  readdata <: SDRAM ? DRAM.readdata :
                 BRAM ? RAM.readdata :
                 TIMERS ? TIMERS_Map.readData :
@@ -260,15 +243,24 @@ $$end
                 AUDIO ? AUDIO_Map.readData :
                 IO? IO_Map.readData : 0;
 
+    // SDRAM -> CPU BUSY STATE
+    CPU.memorybusy := DRAM.busy | ( ( CPU.readmemory | CPU.writememory ) & ( BRAM | SDRAM ) );
+
     always_before {
+        DRAM.readflag = SDRAM & CPU.readmemory;
         RAM.readflag = BRAM & CPU.readmemory;
         AUDIO_Map.memoryRead = AUDIO & CPU.readmemory;
+        IO_Map.memoryRead = IO & CPU.readmemory;
         TIMERS_Map.memoryRead = TIMERS & CPU.readmemory;
+        VIDEO_Map.memoryRead = VIDEO & CPU.readmemory;
     }
     always_after {
+        DRAM.writeflag = SDRAM & CPU.writememory;
         RAM.writeflag = BRAM & CPU.writememory;
         AUDIO_Map.memoryWrite = AUDIO & CPU.writememory;
+        IO_Map.memoryWrite = IO & CPU.writememory;
         TIMERS_Map.memoryWrite = TIMERS & CPU.writememory;
+        VIDEO_Map.memoryWrite = VIDEO & CPU.writememory;
     }
 }
 
@@ -325,7 +317,7 @@ algorithm cachecontroller(
     input   uint1   readflag,
     output  uint16  readdata,
     output  uint1   busy(0)
-) <autorun> {
+) <autorun,reginputs> {
     // CACHE for SDRAM 16k
     // CACHE ADDRESS IS LOWER 14 bits ( 0 - 8191 ) of address, dropping the BYTE address bit
     // CACHE TAG IS REMAINING 12 bits of the 26 bit address + 1 bit for valid flag + 1 bit for needwritetosdram flag
