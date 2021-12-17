@@ -105,6 +105,7 @@ algorithm gpu_queue(
             GPU.crop_left = queue_cropL; GPU.crop_right = queue_cropR; GPU.crop_top = queue_cropT; GPU.crop_bottom = queue_cropB;
 
             switch( queue_write ) {
+                case 0: {}
                 case 14: {
                     // SECOND TRIANGLE TO GPU
                     GPU.gpu_param0 = queue_param4; GPU.gpu_param1 = queue_param5;
@@ -123,9 +124,8 @@ algorithm gpu_queue(
                     queue_write = 0;
                 }
             }
-        } else {
-            queue_busy = |queue_write;
         }
+        queue_busy = |queue_write;
     }
 }
 
@@ -200,7 +200,7 @@ algorithm gpu(
 
     // GPU UNIT BUSY FLAGS
     uint6   gpu_busy_flags <:: { GPUpixelblock.busy, |GPUblit.busy, GPUtriangle.busy, GPUcircle.busy, GPUrectangle.busy, GPUline.busy };
-    uint1   gpu_busy <: ( |gpu_busy_flags );
+    uint1   gpu_busy <:: ( |gpu_busy_flags );
 
     // CONTROLS FOR BITMAP PIXEL WRITER AND GPU SUBUNITS
     bitmap_write := GPUline.bitmap_write | GPUrectangle.bitmap_write | GPUcircle.bitmap_write |
