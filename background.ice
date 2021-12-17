@@ -146,15 +146,13 @@ algorithm background_display(
     pattern PATTERN( pix_x <: pix_x, pix_y <: pix_y, b_mode <: b_mode );
     rainbow RAINBOW( y <: pix_y[6,3] );
 
-    always {
-        // RENDER
-        if( pix_active ) {
-            // SELECT ACTUAL COLOUR
-            switch( b_mode ) {
-                default: { pixel = PATTERN.condition ? b_colour : b_alt; }              // EVERYTHING ELSE
-                case 4: { pixel = RAINBOW.colour; }                                     // RAINBOW
-                case 6: { pixel = {3{staticGenerator}}; }                               // STATIC
-            }
+    always_after {
+        // RENDER - SELECT ACTUAL COLOUR
+        switch( PATTERN.condition ) {
+            case 0: { pixel = b_alt; }                                              // EVERYTHING ELSE
+            case 1: { pixel = b_colour; }
+            case 2: { pixel = RAINBOW.colour; }                                     // RAINBOW
+            case 3: { pixel = {3{staticGenerator}}; }                               // STATIC
         }
     }
 }
@@ -184,7 +182,7 @@ algorithm pattern(
     input   uint10  pix_x,
     input   uint10  pix_y,
     input   uint4   b_mode,
-    output! uint1   condition
+    output! uint2   condition
 ) <autorun> {
     uint1   tophalf <: ( pix_y < 240 );             uint1   lefthalf <: ( pix_x < 320 );                uint4   checkmode <: b_mode - 7;
     starfield STARS( pix_x <: pix_x, pix_y <: pix_y );
@@ -202,7 +200,7 @@ algorithm pattern(
             case 13: { condition = ( pix_x[0,2] == ~pix_y[0,2] ); }                 // RSLOPE
             case 14: { condition = pix_x[0,1]; }                                    // VSTRIPES
             case 15: { condition = pix_y[0,1]; }                                    // HSTRIPES
-            case 4: {} case 6: {}                                                   // STATIC AND RAINBOW (placeholder, done in main)
+            case 4: { condition = 2; } case 6: { condition = 3; }                   // STATIC AND RAINBOW (placeholder, done in main)
             default: { condition = ( pix_x[checkmode,1] ^ pix_y[checkmode,1] ); }   // CHECKERBOARDS (7,8,9,10)
         }
     }
