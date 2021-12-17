@@ -489,8 +489,7 @@ algorithm floattoint(
     output  uint7   flags,
     output  uint32  result
 ) <autorun> {
-    uint1   NN <:: classA[2,1] | classA[1,1];
-    uint1   NV <:: ( PREP.exp > 30 ) | classA[3,1] | NN;
+    uint1   NN <:: classA[2,1] | classA[1,1];       uint1   NV <:: ( PREP.exp > 30 ) | classA[3,1] | NN;
 
     // PREPARE THE CONVERSION
     prepftoi PREP( a <: a );
@@ -516,8 +515,7 @@ algorithm floattouint(
     output  uint7   flags,
     output  uint32  result
 ) <autorun> {
-    uint1   NN <:: classA[2,1] | classA[1,1];
-    uint1   NV <:: ( PREP.exp > 31 ) | fp32( a ).sign | classA[3,1] | NN;
+    uint1   NN <:: classA[2,1] | classA[1,1];       uint1   NV <:: ( PREP.exp > 31 ) | fp32( a ).sign | classA[3,1] | NN;
 
     // PREPARE THE CONVERSION
     prepftoi PREP( a <: a );

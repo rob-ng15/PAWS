@@ -148,41 +148,29 @@ algorithm bitmapwriter(
         queue_complete :> gpu_queue_complete
     );
 
-    uint7   pixeltowrite = uninitialised;
-    dither DODITHER(bitmap_x_write <: QUEUE.bitmap_x_write, bitmap_y_write <: QUEUE.bitmap_y_write, dithermode <: QUEUE.gpu_active_dithermode, static1bit <: static6bit[0,1]);
+    uint7   pixeltowrite <:: ( QUEUE.gpu_active_dithermode == 14 ) ? static6bit : DODITHER.condition ? QUEUE.bitmap_colour_write : QUEUE.bitmap_colour_write_alt;
+    dither DODITHER( bitmap_x_write <: QUEUE.bitmap_x_write, bitmap_y_write <: QUEUE.bitmap_y_write, dithermode <: QUEUE.gpu_active_dithermode, static1bit <: static6bit[0,1] );
 
     // Write in range?
-    uint1 write_pixel <:: ( QUEUE.bitmap_x_write >= QUEUE.bitmap_crop_left ) & (QUEUE. bitmap_x_write <= QUEUE.bitmap_crop_right ) &
+    uint1   write_pixel <:: ( QUEUE.bitmap_x_write >= QUEUE.bitmap_crop_left ) & (QUEUE. bitmap_x_write <= QUEUE.bitmap_crop_right ) &
                             ( QUEUE.bitmap_y_write >= QUEUE.bitmap_crop_top ) & ( QUEUE.bitmap_y_write <= QUEUE.bitmap_crop_bottom ) & QUEUE.bitmap_write;
+    uint1   write_buffer0 <:: write_pixel & ~framebuffer;
+    uint1   write_buffer1 <:: write_pixel & framebuffer;
 
     // Bitmap write access for the GPU
     uint17  address <:: QUEUE.bitmap_y_write[0,8] * 320 + QUEUE.bitmap_x_write[0,9];
-    bitmap_0A.wenable1 := 1; bitmap_0R.wenable1 := 1; bitmap_0G.wenable1 := 1; bitmap_0B.wenable1 := 1;
-    bitmap_1A.wenable1 := 1; bitmap_1R.wenable1 := 1; bitmap_1G.wenable1 := 1; bitmap_1B.wenable1 := 1;
+    bitmap_0A.wenable1 := write_buffer0; bitmap_0R.wenable1 := write_buffer0; bitmap_0G.wenable1 := write_buffer0; bitmap_0B.wenable1 := write_buffer0;
+    bitmap_1A.wenable1 := write_buffer1; bitmap_1R.wenable1 := write_buffer1; bitmap_1G.wenable1 := write_buffer1; bitmap_1B.wenable1 := write_buffer1;
 
-    always_before {
-        // SELECT ACTUAL COLOUR
-        switch( QUEUE.gpu_active_dithermode ) {
-            case 14: { pixeltowrite = static6bit; }
-            default: { pixeltowrite = DODITHER.condition ? QUEUE.bitmap_colour_write : QUEUE.bitmap_colour_write_alt; }
-        }
-    }
-    always_after {
-        if( write_pixel ) {
-            // SET PIXEL ADDRESSS bitmap_y_write * 320 + bitmap_x_write
-            if( framebuffer ) {
-                bitmap_1A.addr1 = address; bitmap_1A.wdata1 = pixeltowrite[6,1];
-                bitmap_1R.addr1 = address; bitmap_1R.wdata1 = pixeltowrite[4,2];
-                bitmap_1G.addr1 = address; bitmap_1G.wdata1 = pixeltowrite[2,2];
-                bitmap_1B.addr1 = address; bitmap_1B.wdata1 = pixeltowrite[0,2];
-            } else {
-                bitmap_0A.addr1 = address; bitmap_0A.wdata1 = pixeltowrite[6,1];
-                bitmap_0R.addr1 = address; bitmap_0R.wdata1 = pixeltowrite[4,2];
-                bitmap_0G.addr1 = address; bitmap_0G.wdata1 = pixeltowrite[2,2];
-                bitmap_0B.addr1 = address; bitmap_0B.wdata1 = pixeltowrite[0,2];
-            }
-        }
-    }
+    bitmap_1A.addr1 := address; bitmap_1A.wdata1 := pixeltowrite[6,1];
+    bitmap_1R.addr1 := address; bitmap_1R.wdata1 := pixeltowrite[4,2];
+    bitmap_1G.addr1 := address; bitmap_1G.wdata1 := pixeltowrite[2,2];
+    bitmap_1B.addr1 := address; bitmap_1B.wdata1 := pixeltowrite[0,2];
+
+    bitmap_0A.addr1 := address; bitmap_0A.wdata1 := pixeltowrite[6,1];
+    bitmap_0R.addr1 := address; bitmap_0R.wdata1 := pixeltowrite[4,2];
+    bitmap_0G.addr1 := address; bitmap_0G.wdata1 := pixeltowrite[2,2];
+    bitmap_0B.addr1 := address; bitmap_0B.wdata1 := pixeltowrite[0,2];
 }
 
 algorithm dither(

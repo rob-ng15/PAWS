@@ -413,10 +413,10 @@ void gpu_dither( unsigned char mode, unsigned char colour ) {
 // SET GPU CROPPING RECTANGLE
 void gpu_crop( short left, short top, short right, short bottom ) {
     wait_gpu();
-    *CROP_LEFT = left;
-    *CROP_RIGHT = right;
-    *CROP_TOP = top;
-    *CROP_BOTTOM = bottom;
+    *CROP_LEFT = left < 0 ? 0 : left;
+    *CROP_RIGHT = right > 319 ? 319 : right;
+    *CROP_TOP = top < 0 ? 0 : top;
+    *CROP_BOTTOM = bottom > 239 ? 239 : bottom;
 }
 
 // SET THE PIXEL at (x,y) to colour
