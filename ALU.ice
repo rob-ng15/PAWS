@@ -51,7 +51,7 @@ algorithm alu(
 ) <autorun> {
     uint1   dosub <:: opCode[3,1] & function7[5,1];
     uint5   shiftcount <:: opCode[3,1] ? sourceReg2[0,5] : rs2;
-    uint32   operand2 <:: opCode[3,1] ? sourceReg2 : immediateValue;
+    uint32  operand2 <:: opCode[3,1] ? sourceReg2 : immediateValue;
     uint1   unsignedcompare <:: __unsigned( sourceReg1 ) < __unsigned( operand2 );
 
     uint1   SLT <:: __signed( sourceReg1 ) < __signed(operand2);
