@@ -612,7 +612,7 @@ algorithm charactermap_memmap(
     input   uint1   memoryWrite,
     input   uint16  writeData,
 
-    output  uint2   tpu_active,
+    output  uint3   tpu_active,
     output  uint9   curses_character,
     output  uint7   curses_background,
     output  uint6   curses_foreground
