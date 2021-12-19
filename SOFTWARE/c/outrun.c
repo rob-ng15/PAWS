@@ -518,10 +518,10 @@ void drawtunnelface( float px, float py, float scale ) {
     short x1, y1, x2, y2;
     gettunnelrectangle( px, py, scale, &x1, &y1, &x2, &y2 );
     short wh = 4.5 * scale, wy = py - wh;
-    gpu_dither( DITHERBRICK, BROWN );
-    if( y1 > 0 ) gpu_rectangle( DKBROWN, 0, wy, 319, y1 - 1 );
-    if( x1 > 0 ) gpu_rectangle( DKBROWN, 0, y1, x1 -1, y2 - 1 );
-    if( x2 < 319 ) gpu_rectangle( DKBROWN, x2, y1, 319, y2 - 1 );
+    gpu_dither( DITHERBRICK, GREY2 );
+    if( y1 > 0 ) gpu_rectangle( 0x10, 0, wy, 319, y1 - 1 );
+    if( x1 > 0 ) gpu_rectangle( 0x10, 0, y1, x1 -1, y2 - 1 );
+    if( x2 < 319 ) gpu_rectangle( 0x10, x2, y1, 319, y2 - 1 );
     gpu_dither( DITHEROFF );
 }
 
