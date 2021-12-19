@@ -111,7 +111,7 @@ algorithm bitmapwriter(
         gpu_active <: QUEUE.gpu_active
     );
 
-    // From GPU to set a pixel
+    // GPU QUEUE CONTROLLER, WITH OUTPUTS FOR WRITING PIXELS
     gpu_queue QUEUE(
         crop_left <: crop_left,
         crop_right <: crop_right,
@@ -157,20 +157,16 @@ algorithm bitmapwriter(
     uint1   write_buffer0 <:: write_pixel & ~framebuffer;
     uint1   write_buffer1 <:: write_pixel & framebuffer;
 
-    // Bitmap write access for the GPU
+    // LOCK BITMAP ADDRESSES, PIXEL VALUE, AND WRITE FLAGS
     uint17  address <:: QUEUE.bitmap_y_write[0,8] * 320 + QUEUE.bitmap_x_write[0,9];
     bitmap_0A.wenable1 := write_buffer0; bitmap_0R.wenable1 := write_buffer0; bitmap_0G.wenable1 := write_buffer0; bitmap_0B.wenable1 := write_buffer0;
     bitmap_1A.wenable1 := write_buffer1; bitmap_1R.wenable1 := write_buffer1; bitmap_1G.wenable1 := write_buffer1; bitmap_1B.wenable1 := write_buffer1;
 
-    bitmap_1A.addr1 := address; bitmap_1A.wdata1 := pixeltowrite[6,1];
-    bitmap_1R.addr1 := address; bitmap_1R.wdata1 := pixeltowrite[4,2];
-    bitmap_1G.addr1 := address; bitmap_1G.wdata1 := pixeltowrite[2,2];
-    bitmap_1B.addr1 := address; bitmap_1B.wdata1 := pixeltowrite[0,2];
+    bitmap_1A.addr1 := address; bitmap_1A.wdata1 := pixeltowrite[6,1];                                  bitmap_1R.addr1 := address; bitmap_1R.wdata1 := pixeltowrite[4,2];
+    bitmap_1G.addr1 := address; bitmap_1G.wdata1 := pixeltowrite[2,2];                                  bitmap_1B.addr1 := address; bitmap_1B.wdata1 := pixeltowrite[0,2];
 
-    bitmap_0A.addr1 := address; bitmap_0A.wdata1 := pixeltowrite[6,1];
-    bitmap_0R.addr1 := address; bitmap_0R.wdata1 := pixeltowrite[4,2];
-    bitmap_0G.addr1 := address; bitmap_0G.wdata1 := pixeltowrite[2,2];
-    bitmap_0B.addr1 := address; bitmap_0B.wdata1 := pixeltowrite[0,2];
+    bitmap_0A.addr1 := address; bitmap_0A.wdata1 := pixeltowrite[6,1];                                  bitmap_0R.addr1 := address; bitmap_0R.wdata1 := pixeltowrite[4,2];
+    bitmap_0G.addr1 := address; bitmap_0G.wdata1 := pixeltowrite[2,2];                                  bitmap_0B.addr1 := address; bitmap_0B.wdata1 := pixeltowrite[0,2];
 }
 
 algorithm dither(
@@ -182,7 +178,7 @@ algorithm dither(
 ) <autorun> {
     uint4   checkmode <: dithermode - 1;            uint3   revbitmapx <: 3b111 - bitmap_x_write[0,3];
 
-    always {
+    always_after {
         // DITHER PATTERNS
         // == 0 SOLID == 1 SMALL CHECKERBOARD == 2 MED CHECKERBOARD == 3 LARGE CHECKERBOARD
         // == 4 VERTICAL STRIPES == 5 HORIZONTAL STRIPES == 6 CROSSHATCH == 7 LEFT SLOPE
