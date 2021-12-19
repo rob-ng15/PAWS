@@ -60,17 +60,14 @@ algorithm cmcursorx(
 algorithm cmcursory(
     input   uint6   tpu_active_y,
     output  uint6   NEXT,
-    output  uint1   ATLAST
 ) <autorun> {
     always_after {
-        ATLAST = ( tpu_active_y == 59 );
-        NEXT = tpu_active_y + 1;
+        NEXT = ( tpu_active_y == 59 ) ? 0 : tpu_active_y + 1;
     }
 }
 algorithm cmaddresses(
     input   uint7   tpu_active_x,
     input   uint6   tpu_active_y,
-    input   uint7   tpu_x,
     input   uint6   tpu_y,
     output  uint13  WRITEADDR,
     output  uint13  YSTARTADDR,
@@ -115,7 +112,7 @@ algorithm character_map_writer(
     uint6   tpu_active_y = 0;                       cmcursory TPUY( tpu_active_y <: tpu_active_y );
 
     // ADDRESS CALCULATIONS AND BRAM write access for the TPU
-    cmaddresses TPUA( tpu_active_x <: tpu_active_x, tpu_active_y <: tpu_active_y, tpu_x <: tpu_x, tpu_y <: tpu_y );
+    cmaddresses TPUA( tpu_active_x <: tpu_active_x, tpu_active_y <: tpu_active_y, tpu_y <: tpu_y );
     charactermap.wenable1 := 1; colourmap.wenable1 := 1; charactermap_copy.wenable1 := 1;
 
     // OUTPUT FROM CURSES BUFFER AND CURSOR POSITION
@@ -132,18 +129,16 @@ algorithm character_map_writer(
                 ( tpu_active_x, tpu_active_y ) = copycoordinates( tpu_x, tpu_y );
             }
             case 2: {                                                                                                                                   // Write character,foreground, background and move
-                charactermap.addr1 = TPUA.WRITEADDR;
-                charactermap.wdata1 = tpu_character;
-                colourmap.addr1 = TPUA.WRITEADDR;
-                colourmap.wdata1 = { tpu_background, tpu_foreground };
+                charactermap.addr1 = TPUA.WRITEADDR; charactermap.wdata1 = tpu_character;
+                colourmap.addr1 = TPUA.WRITEADDR; colourmap.wdata1 = { tpu_background, tpu_foreground };
                 if( TPUX.ATLAST ) {
-                    tpu_active_x = 0; tpu_active_y = TPUY.ATLAST ? 0 : TPUY.NEXT;
+                    tpu_active_x = 0; tpu_active_y = TPUY.NEXT;
                 } else {
                     tpu_active_x = TPUX.NEXT;
                 }
             }
             case 3: { tpu_active_x = 0; tpu_active_y = 0; tpu_active = 1; tpu_start_cs_addr = 0; tpu_max_count = 4800; }                                // Start tpucs
-            case 4: { tpu_active_x = 0; tpu_active_y = tpu_y; tpu_active = 1; tpu_start_cs_addr = TPUA.YSTARTADDR; tpu_max_count = TPUA.YENDADDR; }     // Start tpu_clearline
+            case 4: { tpu_active = 1; tpu_start_cs_addr = TPUA.YSTARTADDR; tpu_max_count = TPUA.YENDADDR; }                                             // Start tpu_clearline
             case 5: {                                                                                                                                   // Write character, foreground, background to curses buffer
                 charactermap_copy.addr1 = TPUA.WRITEADDR;
                 charactermap_copy.wdata1 = { tpu_background, tpu_foreground, tpu_character };
@@ -158,6 +153,7 @@ algorithm character_map_writer(
             tpu_cs_addr = tpu_start_cs_addr;
             onehot( tpu_active ) {
                 case 0: {                                                                                                                               // TPU WIPE - WHOLE OR PARTIAL SCREEN (LINE)
+                    charactermap.addr1 = tpu_cs_addr; colourmap.addr1 = tpu_cs_addr;
                     charactermap.wdata1 = 0; colourmap.wdata1 = 13b1000000000000;
                     while( tpu_cs_addr != tpu_max_count ) {
                         charactermap.addr1 = tpu_cs_addr; colourmap.addr1 = tpu_cs_addr;
