@@ -780,8 +780,10 @@ algorithm triangle(
 algorithm blitscale(
     input   uint7   offset,
     input   uint2   scale,
+    output  uint7   base,
     output  int11   scaled
 ) <autorun> {
+    base := offset;
     always_after {
         scaled = offset << scale;
     }
@@ -848,15 +850,15 @@ algorithm blit(
     int11   y1 = uninitialized;
     uint4   x2 = uninitialised;                         int11   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         int11   y2NEXT <:: y2 + 1;
-    uint7   px = uninitialized;                         blitscale PXS( offset <: px, scale <: scale );  int11   pxNEXT <:: px + 1;
-    uint7   py = uninitialized;                         blitscale PYS( offset <: py, scale <: scale );  int11   pyNEXT <:: py + 1;
+    blitscale PXS( scale <: scale );                    int11   pxNEXT <:: PXS.base + 1;
+    blitscale PYS( scale <: scale );                    int11   pyNEXT <:: PYS.base + 1;
 
     // MAX PIXELS IN TILE AND NUMBER OF TIMES TO USE EACH PIXEL
     uint5   max_pixels <:: tilecharacter ? 16 : 8;      uint4   max_count <:: ( 1 << scale );
 
     // FIND X AND Y WITHIN THE TILE/CHARACTER BITMAP
-    blittilexy BTXY( px <: px, py <: py, action <: action );
-    cololurblittilexy CBTXY( px <: px, py <: py, action <: action );
+    blittilexy BTXY( px <: PXS.base, py <: PYS.base, action <: action );
+    cololurblittilexy CBTXY( px <: PXS.base, py <: PYS.base, action <: action );
 
     blit1tilemap.addr0 := { tile, BTXY.yinblittile }; characterGenerator8x8.addr0 := { tile, BTXY.yinchartile }; colourblittilemap.addr0 := { tile, CBTXY.yintile, CBTXY.xintile };
     bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0; bitmap_write := 0;
@@ -864,10 +866,10 @@ algorithm blit(
     while(1) {
         if( |start ) {
             busy = start;
-            py = 0; ( x1, y1 ) = copycoordinates( x, y );
-            while( py != max_pixels ) {
-                px = 0;
-                while( px != max_pixels ) {
+            PYS.offset = 0; ( x1, y1 ) = copycoordinates( x, y );
+            while( PYS.offset != max_pixels ) {
+                PXS.offset = 0;
+                while( PXS.offset != max_pixels ) {
                     y2 = 0;
                     while( y2 != max_count ) {
                         x2 = 0;
@@ -880,9 +882,9 @@ algorithm blit(
                         }
                         y2 = y2NEXT;
                     }
-                    px = pxNEXT;
+                    PXS.offset = pxNEXT;
                 }
-                py = pyNEXT;
+                PYS.offset = pyNEXT;
             }
             busy = 0;
         }
@@ -913,7 +915,7 @@ algorithm pixelblock(
 ) <autorun,reginputs> {
     // POSITION ON THE SCREEN
     int11   x1 = uninitialised;                     int11   y1 = uninitialised;
-    int11   max_x <:: x + width;
+    uint1   lineend <:: ( x1 == x + width );
 
     bitmap_x_write := x1; bitmap_y_write := y1; bitmap_write := ( ( newpixel == 1 ) & ( colour7 != ignorecolour ) ) | ( newpixel == 2 );
     bitmap_colour_write := ( newpixel == 1 ) ? colour7 : { 1b0, colour8r[6,2], colour8g[6,2], colour8b[6,2] };
@@ -924,10 +926,10 @@ algorithm pixelblock(
         } else {
             if( busy ) {
                 if( &newpixel ) { busy = 0; }
-                if( x1 != max_x ) {
-                    if( |newpixel ) { x1 = x1 + 1; }
-                } else {
+                if( lineend ) {
                     x1 = x; y1 = y1 + 1;
+                } else {
+                    if( |newpixel ) { x1 = x1 + 1; }
                 }
             }
         }
@@ -943,23 +945,16 @@ algorithm pixelblock(
 // Each vertices has an active flag, processing of a vector block stops when the active flag is 0
 // Each vector block has a centre x and y coordinate and a colour { rrggbb } when drawn
 
-// SIGN EXTEND 6 BIT DELTA TO 11 BIT
-algorithm vdeltasignextend(
-    input   uint6   d,
-    output  int11   delta
-) <autorun> {
-    always_after {
-        delta = { {11{d[5,1]}}, d };
-    }
-}
 // SCALE A DELTA USING THE SCALE ATTRIBUTE
 algorithm scaledetla(
     input   uint3   scale,
-    input   int11   delta,
+    input   uint6   delta,
     output  int11   scaled
 ) <autorun> {
+    // SIGN EXTEND THE DELTA, THEN SCALE
+    int11   extdelta <:: { {11{delta[5,1]}}, delta };
     always_after {
-        scaled = ( scale[2,1] ? ( __signed(delta) >>> scale[0,2] ) : ( delta << scale[0,2] ) );
+        scaled = ( scale[2,1] ? ( __signed(extdelta) >>> scale[0,2] ) : ( extdelta << scale[0,2] ) );
     }
 }
 // ADJUST COORDINATES BY DELTAS AND SCALE
@@ -974,8 +969,7 @@ algorithm centreplusdelta(
     output  int11   ydy
 ) <autorun> {
     // SIGN EXTEND DELTAS AND APPLY SCALE
-    vdeltasignextend DX( d <: dx ); vdeltasignextend DY( d <: dy );
-    scaledetla SDX( scale <: scale, delta <: DX.delta ); scaledetla SDY( scale <: scale, delta <: DY.delta );
+    scaledetla SDX( scale <: scale, delta <: dx ); scaledetla SDY( scale <: scale, delta <: dy );
 
     // PLUS OR MINUS SCALE
     int11   xcpdx <:: xc + SDX.scaled;                  int11   xcndx <:: xc - SDX.scaled;
@@ -1036,22 +1030,13 @@ algorithm vectors(
 
     while(1) {
         if( draw_vector ) {
-            vector_block_active = 1;
-            vertex = 0;
-            ++:
-            // Start with the first vertex
-            ( gpu_x, gpu_y ) = copycoordinates( gpu_param0, gpu_param1 );
-            vertex = 1;
-            ++:
-            // Continue until an inactive or last vertex
-            while( working ) {
-                // Move to the next vertex
+            vector_block_active = 1; vertex = 1;
+            ( gpu_x, gpu_y ) = copycoordinates( gpu_param0, gpu_param1 );       // Copy vertex 0 to line start x,y
+            while( working ) {                                                  // Continue until an inactive or last vertex
                 ++:
-                // Dispatch line to GPU
-                while( gpu_active ) {} gpu_write = 1;
+                while( gpu_active ) {} gpu_write = 1;                           // Dispatch line to GPU
                 ++:
-                // Move onto the next vertex
-                ( gpu_x, gpu_y ) = copycoordinates( gpu_param0, gpu_param1 );
+                ( gpu_x, gpu_y ) = copycoordinates( gpu_param0, gpu_param1 );   // Copy line end to line start and move onto the next vertex
                 vertex = vertexNEXT;
             }
             vector_block_active = 0;
