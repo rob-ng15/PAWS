@@ -157,10 +157,12 @@ algorithm PAWSCPU(
                 case 2b10: { instruction = { COMPRESSED10.i32, 2b11 }; }
                 default: {}
             }
+            ++:
         } else {
             instruction[0,16] = readdata; address = PC2.addressplus2; readmemory = 1; while( memorybusy ) {} instruction[16,16] = readdata;         // 32 BIT INSTRUCTION FETCH 2ND 16 BITS
+            ++: ++:
         }
-        ++: ++:                                                                                                                                     // DECODE, REGISTER FETCH, ADDRESS GENERATION
+        // DECODE, REGISTER FETCH, ADDRESS GENERATION AUTOMATICALLY TAKES PLACE
 
         if( MEMACCESS.memoryload ) {
             address = AGU.loadAddress; readmemory = 1; while( memorybusy ) {}                                                                       // READ 1ST 8 or 16 BITS

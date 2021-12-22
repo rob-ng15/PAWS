@@ -298,7 +298,9 @@ void reset_display( void ) {
     }
 }
 
+// SMT THREAD TO MOVE COLOUR BARS AND FLASH LEDS
 void scrollbars( void ) {
+    unsigned char leds = 1, direction = 0, ledcount = 0;
     short count = 0;
     while(1) {
         await_vblank();count++;
@@ -306,6 +308,16 @@ void scrollbars( void ) {
             tilemap_scrollwrapclear( 0, 7 );
             tilemap_scrollwrapclear( 1, 5 );
             count = 0;
+            ledcount++;
+            if( ledcount == 16 ) {
+                if( direction ) {
+                    if( leds == 1 ) { direction = 0; } else { leds = leds >> 1; }
+                } else {
+                    if( leds == 128 ) { direction = 1; } else { leds = leds << 1; }
+                }
+                *LEDS = leds;
+                ledcount = 0;
+            }
         }
     }
 }
@@ -612,6 +624,7 @@ void main( void ) {
     // STOP SMT TO ALLOW FASTER LOADING
     SMTSTOP();
 
+    *LEDS = 255;
     gpu_outputstringcentre( WHITE, 72, 1, "PAW File", 0 );
     gpu_outputstringcentre( WHITE, 80, 1, "SELECTED", 0 );
     gpu_outputstringcentre( WHITE, 88, 0, "", 0 );
@@ -624,9 +637,10 @@ void main( void ) {
     gpu_outputstringcentre( WHITE, 80, 1, "LAUNCHING", 0 );
     sleep(500);
 
-    // RESET THE DISPLAY
+    // RESET THE DISPLAY AND TURN OFF LEDS
     reset_display();
     set_background( BLACK, BLACK, BKG_SOLID );
+    *LEDS = 0;
 
     // CALL SDRAM LOADED PROGRAM
     ((void(*)(void))0x4000000)();

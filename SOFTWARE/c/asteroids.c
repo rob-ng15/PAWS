@@ -808,9 +808,8 @@ void beepboop( void ) {
         switch( last_timer & 3 ) {
             case 0:
                 if( lives == 0 ) {
-                    tpu_print_centre( 52, TRANSPARENT, BLUE, 1, "Welcome to Risc-ICE-V Asteroids" );
                     tpu_print_centre( 6, TRANSPARENT, DKBLUE, 0, "Controls: Fire 1 - FIRE" );
-                    game_over();
+                    tpu_print_centre( 52, TRANSPARENT, BLUE, 1, "Welcome to Risc-ICE-V Asteroids" );
                 } else {
                     if( ufo_sprite_number != 0xff ) {
                         beep( 1, 3, 63, 32 );
@@ -822,9 +821,8 @@ void beepboop( void ) {
 
             case 1:
                 if( lives == 0 ) {
-                    tpu_print_centre( 52, TRANSPARENT, CYAN, 0, "By @robng15 (Twitter) from Whitebridge, Scotland" );
                     tpu_print_centre( 6, TRANSPARENT, PURPLE, 0, "Controls: Fire 2 - SHIELD" );
-                    game_over();
+                    tpu_print_centre( 52, TRANSPARENT, CYAN, 0, "By @robng15 (Twitter) from Whitebridge, Scotland" );
                 } else {
                     if( ufo_sprite_number != 0xff ) {
                         beep( 1, 3, 63, 32 );
@@ -834,9 +832,8 @@ void beepboop( void ) {
 
             case 2:
                 if( lives == 0 ) {
-                    tpu_print_centre( 52, TRANSPARENT, YELLOW, 0, "Press UP to start" );
                     tpu_print_centre( 6, TRANSPARENT, ORANGE, 0, "Controls: Left / Right - TURN" );
-                    game_over();
+                    tpu_print_centre( 52, TRANSPARENT, YELLOW, 0, "Press UP to start" );
                 } else {
                     if( ufo_sprite_number != 0xff ) {
                         beep( 1, 3, 63, 32 );
@@ -849,9 +846,8 @@ void beepboop( void ) {
             case 3:
                 // MOVE TILEMAP UP
                 if( lives == 0 ) {
-                    tpu_print_centre( 52, TRANSPARENT, RED, 0, "Written in Silice by @sylefeb" );
                     tpu_print_centre( 6, TRANSPARENT, DKRED, 0, "Controls: UP - MOVE" );
-                    game_over();
+                    tpu_print_centre( 52, TRANSPARENT, RED, 0, "Written in Silice by @sylefeb" );
                 } else {
                     if( ufo_sprite_number != 0xff ) {
                         beep( 1, 3, 63, 32 );
@@ -861,6 +857,7 @@ void beepboop( void ) {
                 (void)tilemap_scrollwrapclear( UPPER_LAYER, 8 );
                 break;
         }
+        if( lives == 0 ) { game_over(); }
     }
 }
 

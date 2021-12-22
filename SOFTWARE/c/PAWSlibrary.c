@@ -1120,8 +1120,7 @@ void tpu_output_character( short c ) {
 }
 void tpu_outputstring( char attribute, char *s ) {
     while( *s ) {
-        while( *TPU_COMMIT );
-        *TPU_CHARACTER = ( attribute ? 256 : 0 ) + *s; *TPU_COMMIT = 2;
+        tpu_output_character( ( attribute ? 256 : 0 ) + *s );
         s++;
     }
 }
@@ -1137,12 +1136,12 @@ void tpu_printf( char attribute, const char *fmt,... ) {
 
     tpu_outputstring( attribute, buffer );
 }
-void tpu_print_centre( unsigned char y, unsigned char background, unsigned char foreground,  char attribute, char *buffer  ) {
+void tpu_print_centre( unsigned char y, unsigned char background, unsigned char foreground, char attribute, char *buffer  ) {
     tpu_clearline( y );
     tpu_set( 40 - ( strlen(buffer) >> 1 ), y, background, foreground );
     tpu_outputstring( attribute, buffer );
 }
-void tpu_printf_centre( unsigned char y, unsigned char background, unsigned char foreground,  char attribute, const char *fmt,...  ) {
+void tpu_printf_centre( unsigned char y, unsigned char background, unsigned char foreground, char attribute, const char *fmt,...  ) {
     char *buffer = (char *)0x1000;
     va_list args;
     va_start (args, fmt);

@@ -290,16 +290,19 @@ $$else
     };
 $$end
 
+    uint1   update = uninitialized;
+
     // FLAGS FOR BRAM ACCESS
     ram.wenable := 0; ram.addr := address[1,14]; readdata := ram.rdata;
     ram.wdata := byteaccess ? ( address[0,1] ? { writedata[0,8], ram.rdata[0,8] } : { ram.rdata[8,8], writedata[0,8] } ) : writedata;
 
-    while(1) {
+    always {
         if( writeflag ) {
-            if( byteaccess ) {
-                ++:
-            }
-            ram.wenable = 1;
+            ram.wenable = update | ~byteaccess;
+            if( byteaccess ) { update = 1; }
+        } else {
+            ram.wenable = update;
+            update = 0;
         }
     }
 }
@@ -338,7 +341,7 @@ algorithm cachecontroller(
 
     // VALUE TO WRITE TO CACHE ( deals with correctly mapping 8 bit writes and 16 bit writes, using sdram or cache as base )
     uint16  writethrough <:: ( byteaccess ) ? ( address[0,1] ? { writedata[0,8], cachetagmatch ? cache.rdata0[0,8] : SDRAM.readdata[0,8] } :
-                                                                        { cachetagmatch ? cache.rdata0[8,8] : SDRAM.readdata[8,8], writedata[0,8] } ) : writedata;
+                                                                { cachetagmatch ? cache.rdata0[8,8] : SDRAM.readdata[8,8], writedata[0,8] } ) : writedata;
 
     // MEMORY ACCESS FLAGS
     uint1   doread = uninitialized;                 uint1   dowrite = uninitialized;
