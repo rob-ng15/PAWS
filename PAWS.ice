@@ -290,16 +290,19 @@ $$else
     };
 $$end
 
+    uint1   update = uninitialized;
+
     // FLAGS FOR BRAM ACCESS
     ram.wenable := 0; ram.addr := address[1,14]; readdata := ram.rdata;
     ram.wdata := byteaccess ? ( address[0,1] ? { writedata[0,8], ram.rdata[0,8] } : { ram.rdata[8,8], writedata[0,8] } ) : writedata;
 
-    while(1) {
+    always {
         if( writeflag ) {
-            if( byteaccess ) {
-                ++:
-            }
-            ram.wenable = 1;
+            ram.wenable = update | ~byteaccess;
+            if( byteaccess ) { update = 1; }
+        } else {
+            ram.wenable = update;
+            update = 0;
         }
     }
 }
