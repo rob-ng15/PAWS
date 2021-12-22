@@ -301,7 +301,7 @@ algorithm preprectangle(
             busy = 1;
             min_x = ( x1 < crop_left ) ? crop_left : x1;
             min_y = ( y1 < crop_top ) ? crop_top : y1;
-            max_x = 1 + ( ( x2 > crop_right ) ? crop_right : x2 );
+            max_x = ( ( x2 > crop_right ) ? crop_right : x2 );
             max_y = 1 + ( ( y2 > crop_bottom ) ? crop_bottom : y2 );
             ++:
             todraw = TODRAW.draw;
@@ -320,19 +320,21 @@ algorithm drawrectangle(
     output  int11   bitmap_y_write,
     output  uint1   bitmap_write
 ) <autorun> {
-    uint9   x = uninitialized;                          uint8   y = uninitialized;
-    bitmap_x_write := x; bitmap_y_write := y; bitmap_write := 0;
+    bitmap_write := 0;
 
     while(1) {
         if( start ) {
             busy = 1;
-            y = min_y;
-            while( y != max_y ) {
-                x = min_x;
-                while( x != max_x ) { bitmap_write = 1; x = x + 1; }
-                y = y + 1;
+            bitmap_x_write = min_x; bitmap_y_write = min_y; bitmap_write = 1;
+            while( busy ) {
+                if( bitmap_x_write != max_x ) {
+                    bitmap_x_write = bitmap_x_write + 1;
+                } else {
+                    bitmap_x_write = min_x; bitmap_y_write = bitmap_y_write + 1;
+                }
+                busy = ( bitmap_y_write != max_y );
+                bitmap_write = busy;
             }
-            busy = 0;
         }
     }
 }
@@ -913,23 +915,29 @@ algorithm pixelblock(
     output  uint7   bitmap_colour_write,
     output  uint1   bitmap_write
 ) <autorun,reginputs> {
-    // POSITION ON THE SCREEN
-    int11   x1 = uninitialised;                     int11   y1 = uninitialised;
-    uint1   lineend <:: ( x1 == x + width );
+    uint1   update = uninitialised;                 uint1   lineend <:: ( bitmap_x_write == x + width - 1 );
 
-    bitmap_x_write := x1; bitmap_y_write := y1; bitmap_write := ( ( newpixel == 1 ) & ( colour7 != ignorecolour ) ) | ( newpixel == 2 );
+    bitmap_write := ( ( newpixel == 1 ) & ( colour7 != ignorecolour ) ) | ( newpixel == 2 );
     bitmap_colour_write := ( newpixel == 1 ) ? colour7 : { 1b0, colour8r[6,2], colour8g[6,2], colour8b[6,2] };
 
     always_after {
         if( start ) {
-            busy = 1; x1 = x; y1 = y;
+            busy = 1; bitmap_x_write = x; bitmap_y_write = y;
         } else {
             if( busy ) {
-                if( &newpixel ) { busy = 0; }
-                if( lineend ) {
-                    x1 = x; y1 = y1 + 1;
+                if( &newpixel ) {
+                    busy = 0;
                 } else {
-                    if( |newpixel ) { x1 = x1 + 1; }
+                    if( update ) {
+                        if( lineend ) {
+                            bitmap_x_write = x; bitmap_y_write = bitmap_y_write + 1;
+                        } else {
+                            bitmap_x_write = bitmap_x_write + 1;
+                        }
+                        update = 0;
+                    } else {
+                        update = |newpixel;
+                    }
                 }
             }
         }
