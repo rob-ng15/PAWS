@@ -31,7 +31,7 @@ $$end
     input   uint1   blink
 ) <autorun,reginputs> {
     // Video Reset
-    uint1   video_reset = uninitialised; clean_reset sdram_rstcond<@clock_video,!reset> ( out :> video_reset );
+    uint1   video_reset = uninitialised; clean_reset video_rstcond<@clock_25mhz,!reset> ( out :> video_reset );
 
     // HDMI driver
     // Status of the screen, if in range, if in vblank, actual pixel x and y
@@ -40,8 +40,6 @@ $$end
     uint10  pix_x  = uninitialized;
     uint10  pix_y  = uninitialized;
 $$if VGA then
-    uint1   clock_video <: clock_25mhz;
-    uint1   clock_gpu <: clock;
   vga vga_driver<@clock_25mhz,!reset>(
     vga_hs :> video_hs,
     vga_vs :> video_vs,
@@ -52,19 +50,10 @@ $$if VGA then
   );
 $$end
 $$if HDMI then
-    uint1   clock_video = uninitialised;
-    uint1   clock_gpu = uninitialised;
-    uint1   pll_lock_VIDEO = uninitialized;
-    ulx3s_clk_risc_ice_v_VIDEO clk_gen_VIDEO (
-        clkin    <: clock_25mhz,
-        clkGPU  :> clock_gpu,
-        clkVIDEO  :> clock_video,
-        locked   :> pll_lock_VIDEO
-    );
     uint8   video_r = uninitialized;
     uint8   video_g = uninitialized;
     uint8   video_b = uninitialized;
-    hdmi video<@clock_video,!reset> (
+    hdmi video<@clock_25mhz,!reset> (
         vblank  :> vblank,
         active  :> pix_active,
         x       :> pix_x,
@@ -78,7 +67,7 @@ $$end
     // CREATE DISPLAY LAYERS
     // BACKGROUND
     background_memmap BACKGROUND(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -92,8 +81,7 @@ $$end
     // Bitmap Window with GPU
     // 320 x 240 x 7 bit { Arrggbb } colour bitmap
     bitmap_memmap BITMAP(
-        gpu_clock <: clock_gpu,
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -106,7 +94,7 @@ $$end
 
     // Character Map Window
     charactermap_memmap CHARACTER_MAP(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -119,7 +107,7 @@ $$end
 
     // Sprite Layers - Lower and Upper
     sprite_memmap LOWER_SPRITE(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -133,7 +121,7 @@ $$end
         collision_layer_4 <: UPPER_SPRITE.pixel_display
     );
     sprite_memmap UPPER_SPRITE(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -150,7 +138,7 @@ $$end
     // Terminal Window
     uint2   terminal_active = uninitialized;
     terminal_memmap TERMINAL(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -163,7 +151,7 @@ $$end
 
     // Tilemaps - Lower and Upper
     tilemap_memmap LOWER_TILE(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -173,7 +161,7 @@ $$end
         writeData <: writeData
     );
     tilemap_memmap UPPER_TILE(
-        video_clock <: clock_video,
+        video_clock <: clock_25mhz,
         video_reset <: video_reset,
         pix_x      <: pix_x,
         pix_y      <: pix_y,
@@ -184,7 +172,7 @@ $$end
     );
 
     // Combine the display layers for display
-    multiplex_display display <@clock_video,!video_reset> (
+    multiplex_display display <@clock_25mhz,!video_reset> (
         pix_x      <: pix_x,
         pix_y      <: pix_y,
         pix_active <: pix_active,
@@ -386,7 +374,6 @@ algorithm background_memmap(
 
 algorithm bitmap_memmap(
     // Clocks
-    input   uint1   gpu_clock,
     input   uint1   video_clock,
     input   uint1   video_reset,
 

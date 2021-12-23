@@ -410,7 +410,6 @@ algorithm sdramcontroller(
     readdata := sio.data_out;
 
     always_after {
-        if( readflag | writeflag ) { busy = 1; }
-        if( sio.done ) { busy = 0; }
+        busy = ( sio.done ) ? 0 : ( readflag | writeflag ) ? 1 : busy;
     }
 }
