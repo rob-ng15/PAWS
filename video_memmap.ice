@@ -172,7 +172,7 @@ $$end
     );
 
     // Combine the display layers for display
-    multiplex_display display <@clock_25mhz,!reset> (
+    multiplex_display display <@clock_25mhz,!video_reset> (
         pix_x      <: pix_x,
         pix_y      <: pix_y,
         pix_active <: pix_active,
