@@ -4,7 +4,6 @@ $$if not SIMULATION then
 // CLOCKS
 import('../common/clock_system.v')
 import('../common/clock_cpu.v')
-import('../common/clock_video.v')
 $$end
 
 // HDMI for FPGA, VGA for SIMULATION
