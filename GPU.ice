@@ -856,8 +856,6 @@ algorithm blit(
     input   uint1   tilecharacter
 ) <autorun,reginputs> {
     // START POSITION ON THE SCREEN, POSITION IN TILE/CHARACTER AND PIXEL COUNT FOR SCALING
-    int11   x1 = uninitialized;
-    int11   y1 = uninitialized;
     uint4   x2 = uninitialised;                         int11   x2NEXT <:: x2 + 1;
     uint4   y2 = uninitialised;                         int11   y2NEXT <:: y2 + 1;
     blitscale PXS( scale <: scale );                    int11   pxNEXT <:: PXS.base + 1;
@@ -871,12 +869,12 @@ algorithm blit(
     cololurblittilexy CBTXY( px <: PXS.base, py <: PYS.base, action <: action );
 
     blit1tilemap.addr0 := { tile, BTXY.yinblittile }; characterGenerator8x8.addr0 := { tile, BTXY.yinchartile }; colourblittilemap.addr0 := { tile, CBTXY.yintile, CBTXY.xintile };
-    bitmap_x_write := x1 + PXS.scaled + x2; bitmap_y_write := y1 + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0; bitmap_write := 0;
+    bitmap_x_write := x + PXS.scaled + x2; bitmap_y_write := y + PYS.scaled + y2; bitmap_colour_write := colourblittilemap.rdata0; bitmap_write := 0;
 
     while(1) {
         if( |start ) {
             busy = start;
-            PYS.offset = 0; ( x1, y1 ) = copycoordinates( x, y );
+            PYS.offset = 0;
             while( PYS.offset != max_pixels ) {
                 PXS.offset = 0;
                 while( PXS.offset != max_pixels ) {
