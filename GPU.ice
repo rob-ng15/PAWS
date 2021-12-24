@@ -878,17 +878,17 @@ algorithm blit(
             while( PYS.offset != max_pixels ) {
                 PXS.offset = 0;
                 while( PXS.offset != max_pixels ) {
-                    y2 = 0; x2 = 0;
+                    y2 = 0;
                     while( y2 != max_count ) {
-                        if( x2 != max_count ) {
+                        x2 = 0;
+                        while( x2 != max_count ) {
                             onehot( busy ) {
                                 case 0: { bitmap_write = tilecharacter ? blit1tilemap.rdata0[BTXY.xinblittile, 1] : characterGenerator8x8.rdata0[BTXY.xinchartile, 1]; }
                                 case 1: { bitmap_write = ~colour7( colourblittilemap.rdata0 ).alpha; }
                             }
                             x2 = x2NEXT;
-                        } else {
-                            x2 = 0; y2 = y2NEXT;
                         }
+                        y2 = y2NEXT;
                     }
                     PXS.offset = pxNEXT;
                 }
