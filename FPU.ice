@@ -405,6 +405,16 @@ algorithm normalise24(
     }
 }
 
+// NORMALISE RESULT FOR MULTIPLICATION AND SQUARE ROOT
+algorithm fastnormal24(
+    input   uint48  tonormal,
+    output  uint24  normalfraction
+) <autorun> {
+    always_after {
+        normalfraction = tonormal[ tonormal[47,1] ? 23 : 22,24 ];
+    }
+}
+
 // ROUND 23 BIT FRACTION FROM NORMALISED FRACTION USING NEXT TRAILING BIT
 // ADD BIAS TO EXPONENT AND ADJUST EXPONENT IF ROUNDING FORCES
 // COMBINE COMPONENTS INTO FLOATING POINT NUMBER - USED BY CALCULATIONS
@@ -647,10 +657,11 @@ algorithm prepmul(
     uint24  sigA <:: { 1b1, fp32( a ).fraction };   uint24  sigB <:: { 1b1, fp32( b ).fraction };
     uint48  product <:: sigA * sigB;
 
+    fastnormal24 NORMAL( tonormal <: product, normalfraction :> normalfraction );
+
     always_after {
         productsign = fp32( a ).sign ^ fp32( b ).sign;
         productexp = fp32( a ).exponent + fp32( b ).exponent - ( product[47,1] ? 253 : 254 );
-        normalfraction = product[ product[47,1] ? 23 : 22, 24 ];
     }
 }
 algorithm floatmultiply(
@@ -887,11 +898,10 @@ algorithm floatsqrt(
     uint1   OF = uninitialised;
     uint1   UF = uninitialised;
 
-    // PREPARE AND PERFORM THE SQUAREROOT
+    // PREPARE AND PERFORM THE SQUAREROOT, FAST NORMALISE THE RESULT
     prepsqrt PREP( a <: a, squarerootexp :> squarerootexp );
     dofloatsqrt DOSQRT( start_ac <: PREP.start_ac, start_x <: PREP.start_x );
-
-    normalfraction := DOSQRT.squareroot[ DOSQRT.squareroot[47,1] ? 23 : 22,24 ];
+    fastnormal24 NORMAL( tonormal <: DOSQRT.squareroot, normalfraction :> normalfraction );
 
     DOSQRT.start := 0; flags := { classA[3,1], NN, NV, 1b0, OF, UF, 1b0 };
     while(1) {
